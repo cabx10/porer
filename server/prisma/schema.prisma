@@ -1,0 +1,53 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           Int           @id @default(autoincrement())
+  name         String
+  email        String        @unique
+  password     String
+  role         String        // OWNER | SEEKER
+  listings     Listing[]
+  appointments Appointment[]
+}
+
+model Listing {
+  id           Int           @id @default(autoincrement())
+  title        String
+  description  String
+  type         String        // HOME | OFFICE
+  price        Float
+  area         Int           // m²
+  rooms        Int
+  city         String
+  address      String
+  lat          Float
+  lng          Float
+  createdAt    DateTime      @default(now())
+  ownerId      Int
+  owner        User          @relation(fields: [ownerId], references: [id])
+  appointments Appointment[]
+
+  @@index([price])
+  @@index([city, rooms])
+  @@index([type, area])
+}
+
+model Appointment {
+  id        Int      @id @default(autoincrement())
+  date      DateTime
+  message   String?
+  status    String   @default("PENDING") // PENDING | APPROVED | REJECTED
+  listingId Int
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  seekerId  Int
+  seeker    User     @relation(fields: [seekerId], references: [id])
+  createdAt DateTime @default(now())
+}
