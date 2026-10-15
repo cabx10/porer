@@ -32,7 +32,7 @@ Enable "Maps JavaScript API" in Google Cloud Console for your key.
 - Filtering by price range, m², rooms, city, type → `server/src/listings.ts` (Prisma, indexed, paginated)
 - Property location on map → `client/src/components/MapView.tsx`
 - Appointment request management → `server/src/appointments.ts` + `client/src/pages/Dashboard.tsx`
-- Owners add listings; seekers filter and request viewings (JWT roles)
+- Unified user account: any user can both list properties for rent and request viewing appointments to rent properties (JWT authentication)
 
 ## Next step: Kubernetes
 Once comfortable with Docker Compose, the natural next step is converting these three services (db, api, client) into Kubernetes Deployments + Services, with a ConfigMap/Secret for env vars.

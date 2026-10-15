@@ -24,7 +24,7 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: "postgresql://postgres:postgres@db:5432/rental?schema=public"
-      JWT_SECRET: "change-me"
+      JWT_SECRET: "${JWT_SECRET:-change-me}"
       PORT: 4000
       CLIENT_URL: "http://localhost:5173"
     ports:
