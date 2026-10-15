@@ -188,7 +188,10 @@ export default function Dashboard({ user: _user }: { user: User }) {
               <div style={{ border: "1px dashed #ccc", padding: 8, margin: "8px 0" }}>
                 <label>Photos:</label>
                 <input type="file" multiple accept="image/*" ref={fileInputRef} onChange={(e) => {
-                  if (e.target.files) setFiles(prev => [...prev, ...Array.from(e.target.files as FileList)]);
+                  // Copy the files now: clearing the input below empties e.target.files
+                  // before React runs the setFiles updater.
+                  const picked = Array.from(e.target.files ?? []);
+                  setFiles(prev => [...prev, ...picked]);
                   if (fileInputRef.current) fileInputRef.current.value = "";
                 }} />
               </div>
