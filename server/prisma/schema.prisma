@@ -9,13 +9,15 @@ datasource db {
 }
 
 model User {
-  id           Int           @id @default(autoincrement())
-  name         String
-  email        String        @unique
-  password     String
-  role         String        // OWNER | SEEKER
-  listings     Listing[]
-  appointments Appointment[]
+  id               Int           @id @default(autoincrement())
+  name             String
+  email            String        @unique
+  password         String
+  phone            String?
+  listings         Listing[]
+  appointments     Appointment[]
+  sentMessages     Message[]     @relation("SentMessages")
+  receivedMessages Message[]     @relation("ReceivedMessages")
 }
 
 model Listing {
@@ -27,16 +29,20 @@ model Listing {
   area         Int           // m²
   rooms        Int
   city         String
+  district     String?
+  neighborhood String?
   address      String
   lat          Float
   lng          Float
+  photos       String[]      
   createdAt    DateTime      @default(now())
   ownerId      Int
   owner        User          @relation(fields: [ownerId], references: [id])
   appointments Appointment[]
+  messages     Message[]
 
   @@index([price])
-  @@index([city, rooms])
+  @@index([city, district, neighborhood])
   @@index([type, area])
 }
 
@@ -50,4 +56,16 @@ model Appointment {
   seekerId  Int
   seeker    User     @relation(fields: [seekerId], references: [id])
   createdAt DateTime @default(now())
+}
+
+model Message {
+  id         Int      @id @default(autoincrement())
+  content    String
+  createdAt  DateTime @default(now())
+  senderId   Int
+  sender     User     @relation("SentMessages", fields: [senderId], references: [id])
+  receiverId Int
+  receiver   User     @relation("ReceivedMessages", fields: [receiverId], references: [id])
+  listingId  Int?
+  listing    Listing? @relation(fields: [listingId], references: [id], onDelete: SetNull)
 }
