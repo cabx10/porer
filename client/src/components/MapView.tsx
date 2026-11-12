@@ -1,45 +1,125 @@
-import { GoogleMap, Marker, useJsApiLoader } from "@react-google-maps/api";
+import { useEffect, useState } from "react";
+import { GoogleMap, Marker, OverlayView, useJsApiLoader } from "@react-google-maps/api";
+import { MapPinOff } from "lucide-react";
+import { useT, formatPriceShort } from "../i18n";
 
-interface Props {
-  markers: { id: number; lat: number; lng: number; title?: string; price?: number }[];
-  center?: { lat: number; lng: number };
-  zoom?: number;
-  height?: number;
-  onSelect?: (id: number) => void;
-  onMapClick?: (lat: number, lng: number) => void;
+export interface MapMarker {
+  id: number;
+  lat: number;
+  lng: number;
+  price?: number;
 }
 
-import { useEffect, useState } from "react";
-export default function MapView({ markers, center, zoom = 11, height = 400, onSelect, onMapClick }: Props) {
-  const { isLoaded } = useJsApiLoader({ googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_KEY || "" });
+interface Props {
+  markers: MapMarker[];
+  /** Pan here when it changes (e.g. after picking a district). */
+  center?: { lat: number; lng: number };
+  zoom?: number;
+  className?: string;
+  activeId?: number | null;
+  onSelect?: (id: number) => void;
+  onHover?: (id: number | null) => void;
+  onMapClick?: (lat: number, lng: number) => void;
+  /** Zoom the map to show every marker whenever the marker list changes. */
+  fitToMarkers?: boolean;
+}
+
+const ADANA = { lat: 37.0, lng: 35.3213 };
+
+const mapOptions: google.maps.MapOptions = {
+  mapTypeControl: false,
+  streetViewControl: false,
+  fullscreenControl: false,
+  clickableIcons: false,
+  gestureHandling: "greedy",
+  // Hide shops, restaurants and transit icons so the listing pins stand out.
+  styles: [
+    { featureType: "poi", stylers: [{ visibility: "off" }] },
+    { featureType: "transit", stylers: [{ visibility: "off" }] },
+  ],
+};
+
+export default function MapView({
+  markers,
+  center,
+  zoom = 12,
+  className = "h-80",
+  activeId,
+  onSelect,
+  onHover,
+  onMapClick,
+  fitToMarkers,
+}: Props) {
+  const t = useT();
+  const { isLoaded, loadError } = useJsApiLoader({ googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_KEY || "" });
   const [map, setMap] = useState<google.maps.Map | null>(null);
+  const [initialCenter] = useState(() => center ?? markers[0] ?? ADANA);
 
   useEffect(() => {
-    if (map && center) {
-      map.panTo(center);
-    }
-  }, [center, map]);
+    if (map && center) map.panTo(center);
+  }, [map, center?.lat, center?.lng]);
 
-  if (!isLoaded) return <div style={{ height }}>Loading map...</div>;
-  const c = center ?? markers[0] ?? { lat: 37.0000, lng: 35.3213 }; // default: Adana
-  
+  const markerKey = markers.map((m) => m.id).join(",");
+  useEffect(() => {
+    if (!map || !fitToMarkers || markers.length === 0) return;
+    if (markers.length === 1) {
+      map.panTo(markers[0]);
+      map.setZoom(13);
+      return;
+    }
+    const bounds = new google.maps.LatLngBounds();
+    markers.forEach((m) => bounds.extend(m));
+    map.fitBounds(bounds, 60);
+  }, [map, fitToMarkers, markerKey]);
+
+  if (loadError)
+    return (
+      <div className={`grid place-items-center rounded-2xl bg-slate-100 text-sm text-slate-500 ${className}`}>
+        <div className="flex flex-col items-center gap-2">
+          <MapPinOff size={22} />
+          {t("map.error")}
+        </div>
+      </div>
+    );
+  if (!isLoaded) return <div className={`animate-pulse rounded-2xl bg-slate-100 ${className}`} />;
+
   return (
-    <GoogleMap
-      mapContainerStyle={{ width: "100%", height }}
-      center={c}
-      zoom={zoom}
-      onClick={(e) => e.latLng && onMapClick?.(e.latLng.lat(), e.latLng.lng())}
-      onLoad={setMap}
-    >
-      {markers.map((m) => (
-        <Marker 
-          key={m.id} 
-          position={{ lat: m.lat, lng: m.lng }} 
-          title={m.title} 
-          label={m.price ? { text: m.price.toLocaleString() + " ₺", fontSize: "14px", fontWeight: "bold", color: "#b00" } : undefined}
-          onClick={() => onSelect?.(m.id)} 
-        />
-      ))}
-    </GoogleMap>
+    <div className={`overflow-hidden rounded-2xl ${className}`}>
+      <GoogleMap
+        mapContainerStyle={{ width: "100%", height: "100%" }}
+        center={initialCenter}
+        zoom={zoom}
+        options={{ ...mapOptions, draggableCursor: onMapClick ? "crosshair" : undefined }}
+        onLoad={setMap}
+        onClick={(e) => e.latLng && onMapClick?.(e.latLng.lat(), e.latLng.lng())}
+      >
+        {markers.map((m) =>
+          m.price !== undefined ? (
+            <OverlayView
+              key={m.id}
+              position={m}
+              mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
+              getPixelPositionOffset={(w, h) => ({ x: -w / 2, y: -h - 4 })}
+            >
+              <button
+                type="button"
+                onClick={() => onSelect?.(m.id)}
+                onMouseEnter={() => onHover?.(m.id)}
+                onMouseLeave={() => onHover?.(null)}
+                className={`relative whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-bold shadow-md ring-1 transition ${
+                  activeId === m.id
+                    ? "z-10 scale-110 bg-brand-700 text-white ring-brand-800"
+                    : "bg-white text-slate-900 ring-slate-200 hover:bg-brand-50"
+                }`}
+              >
+                {formatPriceShort(m.price, t.lang)}
+              </button>
+            </OverlayView>
+          ) : (
+            <Marker key={m.id} position={m} />
+          ),
+        )}
+      </GoogleMap>
+    </div>
   );
 }

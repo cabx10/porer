@@ -1,277 +1,278 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import { CalendarClock, Check, Eye, Home, ImageOff, Inbox, Pencil, Plus, Send, Trash2, X } from "lucide-react";
+import toast from "react-hot-toast";
 import { api } from "../api";
-import MapView from "../components/MapView";
-import { locationData } from "../utils/locations";
-import { Appointment, Listing, User } from "../types";
+import { useAuth } from "../auth";
+import { useT, formatDateTime, formatPrice } from "../i18n";
+import { Appointment, Listing } from "../types";
+import { locationText } from "../lib/format";
+import { EmptyState, Modal, PageLoader, Spinner, StatusBadge } from "../components/ui";
 
-const blank = { title: "", description: "", type: "HOME", price: "", area: "", rooms: "", city: "", district: "", neighborhood: "", address: "", lat: 0, lng: 0 };
+type Tab = "listings" | "incoming" | "requests";
 
-export default function Dashboard({ user: _user }: { user: User }) {
-  const [tab, setTab] = useState<"listings" | "requests">("listings");
-  const [form, setForm] = useState(blank);
-  const [files, setFiles] = useState<File[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [mine, setMine] = useState<Listing[]>([]);
+function MyListings({ items, onDelete }: { items: Listing[]; onDelete: (l: Listing) => void }) {
+  const t = useT();
+  if (items.length === 0)
+    return (
+      <EmptyState
+        icon={<Home size={22} />}
+        title={t("dash.noListings")}
+        text={t("dash.noListingsText")}
+        action={
+          <Link to="/listings/new" className="btn-primary">
+            <Plus size={16} /> {t("nav.newListing")}
+          </Link>
+        }
+      />
+    );
+  return (
+    <div className="space-y-3">
+      {items.map((l) => (
+        <div key={l.id} className="card flex flex-col gap-4 p-3 sm:flex-row sm:items-center">
+          <Link to={`/listings/${l.id}`} className="h-24 w-full shrink-0 overflow-hidden rounded-xl bg-slate-100 sm:w-32">
+            {l.photos[0] ? (
+              <img src={l.photos[0]} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <div className="grid h-full place-items-center text-slate-400">
+                <ImageOff size={20} />
+              </div>
+            )}
+          </Link>
+          <div className="min-w-0 flex-1">
+            <Link to={`/listings/${l.id}`} className="line-clamp-1 font-semibold text-slate-900 hover:text-brand-700">
+              {l.title}
+            </Link>
+            <p className="mt-0.5 line-clamp-1 text-sm text-slate-500">{locationText(l)}</p>
+            <p className="mt-1.5 text-sm">
+              <span className="font-bold text-slate-900">{formatPrice(l.price, t.lang)}</span>
+              <span className="text-slate-500"> {t("listing.perMonth")} · {l.area} m² · {t("listing.roomsCount", { n: l.rooms })}</span>
+            </p>
+          </div>
+          <div className="flex gap-2 sm:flex-col lg:flex-row">
+            <Link to={`/listings/${l.id}`} className="btn-ghost btn-sm flex-1">
+              <Eye size={14} /> {t("dash.view")}
+            </Link>
+            <Link to={`/listings/${l.id}/edit`} className="btn-secondary btn-sm flex-1">
+              <Pencil size={14} /> {t("dash.edit")}
+            </Link>
+            <button onClick={() => onDelete(l)} className="btn-danger btn-sm flex-1">
+              <Trash2 size={14} /> {t("dash.delete")}
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function IncomingRequests({ items, onDecide }: { items: Appointment[]; onDecide: (id: number, status: "APPROVED" | "REJECTED") => Promise<void> }) {
+  const t = useT();
+  const [busy, setBusy] = useState<number | null>(null);
+  if (items.length === 0) return <EmptyState icon={<Inbox size={22} />} title={t("dash.noIncoming")} text={t("dash.noIncomingText")} />;
+  // Pending requests first, then by date.
+  const sorted = [...items].sort((a, b) => Number(b.status === "PENDING") - Number(a.status === "PENDING") || a.date.localeCompare(b.date));
+  return (
+    <div className="space-y-3">
+      {sorted.map((r) => (
+        <div key={r.id} className="card flex flex-col gap-4 p-4 sm:flex-row sm:items-center">
+          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-700">
+            <CalendarClock size={22} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-semibold text-slate-900">{formatDateTime(r.date, t.lang)}</span>
+              <StatusBadge status={r.status} />
+            </div>
+            <p className="mt-0.5 text-sm text-slate-600">
+              <b className="font-medium text-slate-800">{r.seeker?.name}</b> · {r.seeker?.email}
+            </p>
+            <Link to={`/listings/${r.listing.id}`} className="mt-0.5 line-clamp-1 text-sm text-brand-700 hover:underline">
+              {r.listing.title}
+            </Link>
+            {r.message && <p className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-sm italic text-slate-600">“{r.message}”</p>}
+          </div>
+          {r.status === "PENDING" && (
+            <div className="flex gap-2">
+              <button
+                disabled={busy === r.id}
+                onClick={async () => {
+                  setBusy(r.id);
+                  await onDecide(r.id, "REJECTED");
+                  setBusy(null);
+                }}
+                className="btn-danger btn-sm flex-1"
+              >
+                <X size={14} /> {t("dash.reject")}
+              </button>
+              <button
+                disabled={busy === r.id}
+                onClick={async () => {
+                  setBusy(r.id);
+                  await onDecide(r.id, "APPROVED");
+                  setBusy(null);
+                }}
+                className="btn-primary btn-sm flex-1"
+              >
+                {busy === r.id ? <Spinner className="h-3.5 w-3.5" /> : <Check size={14} />} {t("dash.approve")}
+              </button>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function MyRequests({ items }: { items: Appointment[] }) {
+  const t = useT();
+  if (items.length === 0)
+    return (
+      <EmptyState
+        icon={<Send size={22} />}
+        title={t("dash.noRequests")}
+        text={t("dash.noRequestsText")}
+        action={
+          <Link to="/" className="btn-primary">
+            {t("nav.search")}
+          </Link>
+        }
+      />
+    );
+  return (
+    <div className="space-y-3">
+      {items.map((a) => (
+        <div key={a.id} className="card flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
+          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-600">
+            <CalendarClock size={22} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <Link to={`/listings/${a.listing.id}`} className="line-clamp-1 font-semibold text-slate-900 hover:text-brand-700">
+              {a.listing.title}
+            </Link>
+            <p className="mt-0.5 text-sm text-slate-600">
+              {formatDateTime(a.date, t.lang)}
+              {a.listing.city && ` · ${a.listing.city}`}
+              {a.listing.price !== undefined && ` · ${formatPrice(a.listing.price, t.lang)} ${t("listing.perMonth")}`}
+            </p>
+            {a.message && <p className="mt-1 text-sm italic text-slate-500">“{a.message}”</p>}
+          </div>
+          <StatusBadge status={a.status} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export default function Dashboard() {
+  const t = useT();
+  const { user } = useAuth();
+  const [params, setParams] = useSearchParams();
+  const tab = (params.get("tab") as Tab) || "listings";
+  const [mine, setMine] = useState<Listing[] | null>(null);
   const [incoming, setIncoming] = useState<Appointment[]>([]);
-  const [myRequests, setMyRequests] = useState<Appointment[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [editId, setEditId] = useState<number | null>(null);
-  const [mapCenter, setMapCenter] = useState<{lat: number, lng: number} | undefined>(undefined);
+  const [requests, setRequests] = useState<Appointment[]>([]);
+  const [toDelete, setToDelete] = useState<Listing | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
-  const loadData = async () => {
-    try {
-      const [mineRes, incomingRes, myRequestsRes] = await Promise.all([
-        api<Listing[]>("/listings/mine"),
-        api<Appointment[]>("/appointments/incoming"),
-        api<Appointment[]>("/appointments/mine"),
-      ]);
-      setMine(mineRes);
-      setIncoming(incomingRes);
-      setMyRequests(myRequestsRes);
-    } catch (e) { console.error(e); } 
-    finally { setLoading(false); }
-  };
+  const load = () =>
+    Promise.all([api<Listing[]>("/listings/mine"), api<Appointment[]>("/appointments/incoming"), api<Appointment[]>("/appointments/mine")])
+      .then(([m, i, r]) => {
+        setMine(m);
+        setIncoming(i);
+        setRequests(r);
+      })
+      .catch((e) => toast.error((e as Error).message));
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
-  const f = (k: keyof typeof blank) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
-    setForm({ ...form, [k]: e.target.value });
-
-
-  const geocodeLocation = (searchString: string) => {
-    if (!window.google || !window.google.maps) return;
-    const geocoder = new window.google.maps.Geocoder();
-    geocoder.geocode({ address: searchString + ", Turkey" }, (results, status) => {
-      if (status === "OK" && results && results[0]) {
-        const location = results[0].geometry.location;
-        const lat = location.lat();
-        const lng = location.lng();
-        setMapCenter({ lat, lng });
-        setForm(prev => ({ ...prev, lat, lng }));
-      }
-    });
-  };
-
-  const handleCityChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const city = e.target.value;
-    setForm(prev => ({ ...prev, city, district: "", neighborhood: "" }));
-    if (city) geocodeLocation(city);
-  };
-
-  const handleDistrictChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const district = e.target.value;
-    setForm(prev => ({ ...prev, district, neighborhood: "" }));
-    if (district) geocodeLocation(`${district}, ${form.city}`);
-  };
-
-  const handleNeighborhoodChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const neighborhood = e.target.value;
-    setForm(prev => ({ ...prev, neighborhood }));
-    if (neighborhood) geocodeLocation(`${neighborhood}, ${form.district}, ${form.city}`);
-  };
-
-  const submitListing = async () => {
-    if (!form.lat) return alert("Click the map to set the property location");
-    
-    const formData = new FormData();
-    Object.entries(form).forEach(([k, v]) => formData.append(k, String(v)));
-    if (files) {
-      for (let i = 0; i < files.length; i++) {
-        formData.append("photos", files[i]);
-      }
-    }
-
-    try {
-      const token = localStorage.getItem("token");
-      const url = editId ? `http://localhost:4000/api/listings/${editId}` : "http://localhost:4000/api/listings";
-      const method = editId ? "PUT" : "POST";
-      const res = await fetch(url, {
-        method,
-        headers: { "Authorization": "Bearer " + token },
-        body: formData
-      });
-      if (!res.ok) throw new Error(await res.text());
-      
-      setForm(blank);
-      setFiles([]);
-      setEditId(null);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-      loadData();
-      alert(editId ? "Listing updated successfully!" : "Listing published successfully!");
-    } catch (e) { alert((e as Error).message); }
-  };
-
-  const startEdit = (l: Listing) => {
-    setEditId(l.id);
-    setForm({
-      title: l.title,
-      description: l.description,
-      type: l.type,
-      price: String(l.price),
-      area: String(l.area),
-      rooms: String(l.rooms),
-      city: l.city,
-      district: l.district || "",
-      neighborhood: l.neighborhood || "",
-      address: l.address,
-      lat: l.lat,
-      lng: l.lng
-    });
-    setFiles([]);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-
-  const decide = async (id: number, status: string) => {
+  const decide = async (id: number, status: "APPROVED" | "REJECTED") => {
     try {
       await api(`/appointments/${id}`, { method: "PATCH", body: { status } });
-      loadData();
-    } catch (e) { alert((e as Error).message); }
+      setIncoming((list) => list.map((a) => (a.id === id ? { ...a, status } : a)));
+      toast.success(status === "APPROVED" ? t("dash.approved") : t("dash.rejected"));
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
   };
 
-  const removeListing = async (id: number) => {
-    if (!confirm("Are you sure you want to delete this listing?")) return;
+  const confirmDelete = async () => {
+    if (!toDelete) return;
+    setDeleting(true);
     try {
-      await api(`/listings/${id}`, { method: "DELETE" });
-      loadData();
-    } catch (e) { alert((e as Error).message); }
+      await api(`/listings/${toDelete.id}`, { method: "DELETE" });
+      setMine((list) => list?.filter((l) => l.id !== toDelete.id) ?? null);
+      setIncoming((list) => list.filter((a) => a.listing.id !== toDelete.id));
+      toast.success(t("dash.deleted"));
+      setToDelete(null);
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setDeleting(false);
+    }
   };
+
+  if (mine === null) return <PageLoader />;
+
+  const pending = incoming.filter((a) => a.status === "PENDING").length;
+  const tabs: { id: Tab; label: string; count: number; highlight?: boolean }[] = [
+    { id: "listings", label: t("dash.tab.listings"), count: mine.length },
+    { id: "incoming", label: t("dash.tab.incoming"), count: pending, highlight: pending > 0 },
+    { id: "requests", label: t("dash.tab.requests"), count: requests.length },
+  ];
 
   return (
-    <div>
-      <div style={{ display: "flex", gap: 10, marginBottom: 20, borderBottom: "1px solid #ccc", paddingBottom: 10 }}>
-        <button
-          style={{ fontWeight: tab === "listings" ? "bold" : "normal", padding: "8px 16px", background: tab === "listings" ? "#0066cc" : "#f0f0f0", color: tab === "listings" ? "#fff" : "#333", border: "none", borderRadius: 4, cursor: "pointer" }}
-          onClick={() => setTab("listings")}
-        >
-          🏠 My Properties & Incoming Requests ({mine.length} listings / {incoming.length} requests)
-        </button>
-        <button
-          style={{ fontWeight: tab === "requests" ? "bold" : "normal", padding: "8px 16px", background: tab === "requests" ? "#0066cc" : "#f0f0f0", color: tab === "requests" ? "#fff" : "#333", border: "none", borderRadius: 4, cursor: "pointer" }}
-          onClick={() => setTab("requests")}
-        >
-          📅 My Rental Viewing Requests ({myRequests.length})
-        </button>
+    <div className="page max-w-5xl py-8">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">{t("dash.title")}</h1>
+          <p className="mt-1 text-slate-500">{t("dash.greeting", { name: user?.name ?? "" })}</p>
+        </div>
+        <Link to="/listings/new" className="btn-primary self-start">
+          <Plus size={18} /> {t("nav.newListing")}
+        </Link>
       </div>
 
-      {loading ? <p>Loading dashboard...</p> : tab === "listings" ? (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
-          <div>
-            <h3>{editId ? "Edit Listing" : "Add Property to Rent Out"}</h3>
-            <div style={{ display: "grid", gap: 6 }}>
-              <input placeholder="Title" value={form.title} onChange={f("title")} />
-              <textarea placeholder="Description" value={form.description} onChange={f("description")} />
-              <select value={form.type} onChange={f("type")}>
-                <option value="HOME">Home</option>
-                <option value="OFFICE">Office</option>
-              </select>
-              <input placeholder="Monthly price (₺)" type="number" value={form.price} onChange={f("price")} />
-              <input placeholder="Area (m²)" type="number" value={form.area} onChange={f("area")} />
-              <input placeholder="Rooms" type="number" value={form.rooms} onChange={f("rooms")} />
-              
-              <select value={form.city} onChange={handleCityChange}>
-                <option value="">Select City</option>
-                {Object.keys(locationData).map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
+      <div className="mb-6 flex gap-1 overflow-x-auto overflow-y-hidden border-b border-slate-200 [scrollbar-width:none]">
+        {tabs.map((tb) => (
+          <button
+            key={tb.id}
+            onClick={() => setParams(tb.id === "listings" ? {} : { tab: tb.id })}
+            className={`-mb-px flex items-center gap-2 whitespace-nowrap border-b-2 px-4 py-3 text-sm font-semibold transition ${
+              tab === tb.id ? "border-brand-700 text-brand-800" : "border-transparent text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            {tb.label}
+            <span
+              className={`rounded-full px-2 py-0.5 text-xs ${
+                tb.highlight ? "bg-amber-100 text-amber-800" : tab === tb.id ? "bg-brand-100 text-brand-800" : "bg-slate-100 text-slate-600"
+              }`}
+            >
+              {tb.count}
+            </span>
+          </button>
+        ))}
+      </div>
 
-              <select value={form.district} onChange={handleDistrictChange} disabled={!form.city}>
-                <option value="">Select District</option>
-                {form.city && locationData[form.city] && Object.keys(locationData[form.city]).map(d => <option key={d} value={d}>{d}</option>)}
-              </select>
+      {tab === "listings" && <MyListings items={mine} onDelete={setToDelete} />}
+      {tab === "incoming" && <IncomingRequests items={incoming} onDecide={decide} />}
+      {tab === "requests" && <MyRequests items={requests} />}
 
-              <select value={form.neighborhood} onChange={handleNeighborhoodChange} disabled={!form.district}>
-                <option value="">Select Neighborhood</option>
-                {form.city && form.district && locationData[form.city][form.district] && locationData[form.city][form.district].map((n: string) => <option key={n} value={n}>{n}</option>)}
-              </select>
-
-              <input placeholder="Detailed Address (Optional)" value={form.address} onChange={f("address")} />
-              
-              <div style={{ border: "1px dashed #ccc", padding: 8, margin: "8px 0" }}>
-                <label>Photos:</label>
-                <input type="file" multiple accept="image/*" ref={fileInputRef} onChange={(e) => {
-                  // Copy the files now: clearing the input below empties e.target.files
-                  // before React runs the setFiles updater.
-                  const picked = Array.from(e.target.files ?? []);
-                  setFiles(prev => [...prev, ...picked]);
-                  if (fileInputRef.current) fileInputRef.current.value = "";
-                }} />
-              </div>
-              
-              {files.length > 0 && (
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
-                  {files.map((file, idx) => (
-                    <div key={idx} style={{ position: "relative", width: 60, height: 60 }}>
-                      <img src={URL.createObjectURL(file)} alt="preview" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 4 }} />
-                      <button 
-                        onClick={() => setFiles(prev => prev.filter((_, i) => i !== idx))}
-                        style={{ position: "absolute", top: -5, right: -5, background: "red", color: "white", border: "none", borderRadius: "50%", width: 20, height: 20, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, padding: 0 }}
-                      >
-                        X
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-
-              <small>Click the map to set location {form.lat ? `(${form.lat.toFixed(4)}, ${form.lng.toFixed(4)})` : ""}</small>
-              <MapView height={260} center={mapCenter} markers={form.lat ? [{ id: 0, lat: form.lat, lng: form.lng }] : []} onMapClick={(lat, lng) => setForm(prev => ({ ...prev, lat, lng }))} />
-              
-              <div style={{ display: "flex", gap: 10 }}>
-                <button onClick={submitListing} style={{ flex: 1 }}>{editId ? "Update Listing" : "Publish Listing"}</button>
-                {editId && <button onClick={() => { setEditId(null); setForm(blank); setFiles([]); }} style={{ flex: 1, background: "#ccc", color: "#333", border: "none", borderRadius: 4, cursor: "pointer" }}>Cancel</button>}
-              </div>
-            </div>
-
-            <h3 style={{ marginTop: 24 }}>My Published Listings</h3>
-            {mine.map((l) => (
-              <div key={l.id} style={{ borderBottom: "1px solid #ddd", padding: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                  {l.photos && l.photos[0] && <img src={"http://localhost:4000" + l.photos[0]} alt="Thumb" style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 4 }} />}
-                  <div><b>{l.title}</b> — {l.price.toLocaleString()} ₺</div>
-                </div>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button onClick={() => startEdit(l)} style={{ background: "#f0ad4e", color: "white", border: "none", padding: "4px 8px", borderRadius: 4, cursor: "pointer" }}>Edit</button>
-                  <button onClick={() => removeListing(l.id)} style={{ background: "#d9534f", color: "white", border: "none", padding: "4px 8px", borderRadius: 4, cursor: "pointer" }}>Delete</button>
-                </div>
-              </div>
-            ))}
-            {!mine.length && <p>You haven't published any listings yet.</p>}
-          </div>
-
-          <div>
-            <h3>Incoming Viewing Requests</h3>
-            {incoming.map((r) => (
-              <div key={r.id} style={{ border: "1px solid #ccc", padding: 10, marginBottom: 10, borderRadius: 4 }}>
-                <b>{r.listing.title}</b> · {new Date(r.date).toLocaleString()}
-                <div>Requested by: {r.seeker?.name} ({r.seeker?.email})</div>
-                {r.message && <div style={{ fontStyle: "italic", margin: "4px 0" }}>"{r.message}"</div>}
-                <div>Status: <b style={{ color: r.status === "APPROVED" ? "green" : r.status === "REJECTED" ? "red" : "orange" }}>{r.status}</b></div>
-                {r.status === "PENDING" && (
-                  <div style={{ marginTop: 8 }}>
-                    <button onClick={() => decide(r.id, "APPROVED")}>Approve</button> {" "}
-                    <button onClick={() => decide(r.id, "REJECTED")}>Reject</button>
-                  </div>
-                )}
-              </div>
-            ))}
-            {!incoming.length && <p>No incoming viewing requests yet.</p>}
+      <Modal open={toDelete !== null} onClose={() => setToDelete(null)} title={t("dash.deleteTitle")}>
+        <div className="space-y-5 p-5">
+          <p className="text-sm text-slate-600">{t("dash.deleteText", { title: toDelete?.title ?? "" })}</p>
+          <div className="flex justify-end gap-2">
+            <button onClick={() => setToDelete(null)} className="btn-secondary">
+              {t("common.cancel")}
+            </button>
+            <button onClick={confirmDelete} disabled={deleting} className="btn bg-red-600 text-white hover:bg-red-700">
+              {deleting ? <Spinner className="h-4 w-4" /> : <Trash2 size={16} />} {t("dash.delete")}
+            </button>
           </div>
         </div>
-      ) : (
-        <div>
-          <h3>My Rental Viewing Requests</h3>
-          {myRequests.map((a) => (
-            <div key={a.id} style={{ border: "1px solid #ccc", padding: 12, marginBottom: 10, borderRadius: 4 }}>
-              <b>{a.listing.title}</b> — {a.listing.address || ""} {a.listing.city ? `(${a.listing.city})` : ""}
-              {a.listing.price && <div>Price: {a.listing.price.toLocaleString()} ₺/mo</div>}
-              <div>Appointment Date: {new Date(a.date).toLocaleString()}</div>
-              {a.message && <div style={{ fontStyle: "italic", margin: "4px 0" }}>Your note: "{a.message}"</div>}
-              <div>Status: <b style={{ color: a.status === "APPROVED" ? "green" : a.status === "REJECTED" ? "red" : "orange" }}>{a.status}</b></div>
-            </div>
-          ))}
-          {!myRequests.length && <p>You haven't requested any viewings yet.</p>}
-        </div>
-      )}
+      </Modal>
     </div>
   );
 }
