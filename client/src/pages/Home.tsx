@@ -1,11 +1,12 @@
 import { FormEvent, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowRight, Building2, CalendarCheck, Home as HomeIcon, MessageCircle, Search, Store } from "lucide-react";
+import { ArrowRight, Building2, CalendarCheck, Home as HomeIcon, Map as MapIcon, MessageCircle, Search, Store } from "lucide-react";
 import { api } from "../api";
 import { Listing, ListingPage, ListingType } from "../types";
 import { useT } from "../i18n";
 import { locationData } from "../utils/locations";
 import ListingCard, { ListingCardSkeleton } from "../components/ListingCard";
+import MapView, { MapMarker } from "../components/MapView";
 
 const CITY = "Adana";
 const ROOM_OPTIONS = ["1", "2", "3", "4", "5"];
@@ -100,6 +101,23 @@ function HeroSearch() {
   );
 }
 
+/** Live map of the listings in the hero; pins open the listing. */
+function HeroMap({ markers }: { markers: MapMarker[] }) {
+  const t = useT();
+  const navigate = useNavigate();
+  return (
+    <div className="relative hidden rounded-3xl bg-white/5 p-2 ring-1 ring-white/10 lg:block">
+      <MapView className="h-[380px]" markers={markers} fitToMarkers cooperative zoom={11} onSelect={(id) => navigate(`/listings/${id}`)} />
+      <Link
+        to="/search?view=map"
+        className="absolute bottom-6 left-1/2 inline-flex -translate-x-1/2 items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-lg transition hover:bg-slate-50 dark:bg-slate-900 dark:text-white dark:hover:bg-slate-800"
+      >
+        <MapIcon size={16} /> {t("hero.openMap")}
+      </Link>
+    </div>
+  );
+}
+
 function SectionHeader({ title, link }: { title: string; link?: { to: string; label: string } }) {
   return (
     <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
@@ -121,6 +139,7 @@ const count = (qs: string) =>
 export default function Home() {
   const t = useT();
   const [latest, setLatest] = useState<Listing[] | null>(null);
+  const [mapMarkers, setMapMarkers] = useState<MapMarker[]>([]);
   const [counts, setCounts] = useState<{ all?: number; HOME?: number; OFFICE?: number; districts: Record<string, number> }>({ districts: {} });
   const districts = Object.keys(locationData[CITY]);
 
@@ -128,6 +147,9 @@ export default function Home() {
     api<ListingPage>("/listings?limit=6")
       .then((d) => setLatest(d.items))
       .catch(() => setLatest([]));
+    api<ListingPage>("/listings?limit=50")
+      .then((d) => setMapMarkers(d.items.map((l) => ({ id: l.id, lat: l.lat, lng: l.lng, price: l.price }))))
+      .catch(() => {});
     const city = `city=${encodeURIComponent(CITY)}`;
     Promise.all([
       count(""),
@@ -154,14 +176,17 @@ export default function Home() {
     <>
       <section className="relative overflow-hidden bg-brand-900">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(90,128,196,0.35),transparent_55%)]" />
-        <div className="page relative py-14 sm:py-20">
-          <h1 className="max-w-3xl text-3xl font-bold tracking-tight text-white sm:text-4xl lg:text-5xl">{t("hero.title", { city: CITY })}</h1>
-          <p className="mt-3 text-base text-brand-200 sm:text-lg">
-            {counts.all !== undefined ? t("hero.stats", { n: counts.all, d: districts.length }) : " "}
-          </p>
-          <div className="mt-8 max-w-4xl">
-            <HeroSearch />
+        <div className="page relative grid items-center gap-10 py-12 sm:py-16 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
+          <div>
+            <h1 className="max-w-2xl text-3xl font-bold tracking-tight text-white sm:text-4xl xl:text-5xl">{t("hero.title", { city: CITY })}</h1>
+            <p className="mt-3 text-base text-brand-200 sm:text-lg">
+              {counts.all !== undefined ? t("hero.stats", { n: counts.all, d: districts.length }) : " "}
+            </p>
+            <div className="mt-8">
+              <HeroSearch />
+            </div>
           </div>
+          <HeroMap markers={mapMarkers} />
         </div>
       </section>
 

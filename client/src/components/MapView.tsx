@@ -23,6 +23,8 @@ interface Props {
   onMapClick?: (lat: number, lng: number) => void;
   /** Show a crosshair cursor: the map is used to pick a location. */
   pickLocation?: boolean;
+  /** Let the mouse wheel scroll the page; zooming then needs Ctrl + wheel. */
+  cooperative?: boolean;
   /** Zoom the map to show every marker whenever the marker list changes. */
   fitToMarkers?: boolean;
 }
@@ -70,6 +72,7 @@ export default function MapView({
   onMapClick,
   fitToMarkers,
   pickLocation,
+  cooperative,
 }: Props) {
   const t = useT();
   const { theme } = useTheme();
@@ -111,7 +114,7 @@ export default function MapView({
         mapContainerStyle={{ width: "100%", height: "100%" }}
         center={initialCenter}
         zoom={zoom}
-        options={{ ...mapOptions, styles: theme === "dark" ? darkStyles : baseStyles, backgroundColor: theme === "dark" ? "#16213a" : "#e8eaed", draggableCursor: pickLocation ? "crosshair" : undefined }}
+        options={{ ...mapOptions, styles: theme === "dark" ? darkStyles : baseStyles, backgroundColor: theme === "dark" ? "#16213a" : "#e8eaed", gestureHandling: cooperative ? "cooperative" : "greedy", draggableCursor: pickLocation ? "crosshair" : undefined }}
         onLoad={setMap}
         onClick={(e) => e.latLng && onMapClick?.(e.latLng.lat(), e.latLng.lng())}
       >
