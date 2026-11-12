@@ -49,8 +49,8 @@ function FilterPanel({ initial, onApply, onClear }: { initial: Filters; onApply:
   const [f, setF] = useState(initial);
   useEffect(() => setF(initial), [JSON.stringify(initial)]);
   const set = (k: FilterKey) => (v: string) => setF((prev) => ({ ...prev, [k]: v }));
-  const section = "space-y-2.5 border-b border-slate-100 pb-5";
-  const heading = "text-sm font-semibold text-slate-900";
+  const section = "space-y-2.5 border-b border-slate-100 dark:border-slate-800 pb-5";
+  const heading = "text-sm font-semibold text-slate-900 dark:text-white";
 
   return (
     <form
@@ -110,7 +110,7 @@ function FilterPanel({ initial, onApply, onClear }: { initial: Filters; onApply:
               type="button"
               onClick={() => set("rooms")(f.rooms === r ? "" : r)}
               className={`h-10 flex-1 rounded-xl border text-sm font-semibold transition ${
-                f.rooms === r ? "border-brand-700 bg-brand-700 text-white" : "border-slate-300 bg-white text-slate-700 hover:border-brand-400"
+                f.rooms === r ? "border-brand-700 bg-brand-700 text-white" : "border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:border-brand-400"
               }`}
             >
               {r}
@@ -133,23 +133,23 @@ function MapPreview({ l, onClose }: { l: Listing; onClose: () => void }) {
   const photo = coverPhoto(l);
   return (
     <div className="card absolute bottom-4 left-4 right-4 z-10 flex overflow-hidden sm:left-auto sm:w-[420px]">
-      <Link to={`/listings/${l.id}`} className="h-auto w-36 shrink-0 bg-slate-100">
+      <Link to={`/listings/${l.id}`} className="h-auto w-36 shrink-0 bg-slate-100 dark:bg-slate-800">
         {photo && <img src={photo} alt="" className="h-full w-full object-cover" />}
       </Link>
       <div className="min-w-0 flex-1 p-4">
         <div className="flex items-start justify-between gap-2">
-          <p className="text-lg font-bold text-slate-900">
+          <p className="text-lg font-bold text-slate-900 dark:text-white">
             {formatPrice(l.price, t.lang)}
-            <span className="text-sm font-normal text-slate-500"> {t("listing.perMonth")}</span>
+            <span className="text-sm font-normal text-slate-500 dark:text-slate-400"> {t("listing.perMonth")}</span>
           </p>
-          <button onClick={onClose} className="-mr-1 -mt-1 rounded-lg p-1 text-slate-400 hover:bg-slate-100" aria-label="close">
+          <button onClick={onClose} className="-mr-1 -mt-1 rounded-lg p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="close">
             <X size={16} />
           </button>
         </div>
-        <Link to={`/listings/${l.id}`} className="line-clamp-1 font-semibold text-slate-800 hover:text-brand-700">
+        <Link to={`/listings/${l.id}`} className="line-clamp-1 font-semibold text-slate-800 dark:text-slate-100 hover:text-brand-700 dark:hover:text-brand-300">
           {l.title}
         </Link>
-        <p className="mt-0.5 flex items-center gap-1 text-xs text-slate-500">
+        <p className="mt-0.5 flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
           <MapPin size={12} /> <span className="line-clamp-1">{locationText(l)}</span>
         </p>
         <ListingSpecs l={l} className="mt-2 text-xs" />
@@ -219,8 +219,8 @@ export default function Search() {
     <div className="page py-6 lg:py-8">
       <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">{heading}</h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">{heading}</h1>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
             {data ? (view === "map" && data.total > MAP_LIMIT ? t("search.mapLimited", { n: MAP_LIMIT, total: data.total }) : t("home.resultCount", { n: data.total })) : " "}
           </p>
         </div>
@@ -265,14 +265,14 @@ export default function Search() {
           {chips.length > 0 && (
             <div className="mb-4 flex flex-wrap items-center gap-2">
               {chips.map((c) => (
-                <span key={c.label} className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 py-1 pl-3 pr-1.5 text-sm font-medium text-brand-800 ring-1 ring-inset ring-brand-100">
+                <span key={c.label} className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 dark:bg-brand-900/40 py-1 pl-3 pr-1.5 text-sm font-medium text-brand-800 dark:text-brand-200 ring-1 ring-inset ring-brand-100 dark:ring-brand-800">
                   {c.label}
                   <button onClick={() => update(Object.fromEntries(c.key.map((k) => [k, ""])))} className="rounded-full p-0.5 hover:bg-brand-100" aria-label="remove">
                     <X size={14} />
                   </button>
                 </span>
               ))}
-              <button onClick={clearFilters} className="text-sm font-medium text-slate-500 underline-offset-2 hover:text-slate-800 hover:underline">
+              <button onClick={clearFilters} className="text-sm font-medium text-slate-500 dark:text-slate-400 underline-offset-2 hover:text-slate-800 dark:hover:text-slate-100 hover:underline">
                 {t("filter.clearAll")}
               </button>
             </div>
@@ -301,7 +301,7 @@ export default function Search() {
               />
               {selectedListing && <MapPreview l={selectedListing} onClose={() => setSelected(null)} />}
               {data && items.length === 0 && (
-                <div className="card absolute left-1/2 top-4 -translate-x-1/2 px-4 py-2 text-sm text-slate-600">{t("home.emptyTitle")}</div>
+                <div className="card absolute left-1/2 top-4 -translate-x-1/2 px-4 py-2 text-sm text-slate-600 dark:text-slate-300">{t("home.emptyTitle")}</div>
               )}
             </div>
           ) : !data ? (
@@ -342,7 +342,7 @@ export default function Search() {
                         update({ page: p > 1 ? String(p) : "" }, true);
                         window.scrollTo({ top: 0, behavior: "smooth" });
                       }}
-                      className={`h-9 min-w-9 rounded-lg px-2 text-sm font-semibold ${p === page ? "bg-brand-700 text-white" : "text-slate-600 hover:bg-slate-100"}`}
+                      className={`h-9 min-w-9 rounded-lg px-2 text-sm font-semibold ${p === page ? "bg-brand-700 text-white" : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"}`}
                     >
                       {p}
                     </button>

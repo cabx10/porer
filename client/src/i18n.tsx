@@ -240,6 +240,8 @@ const tr = {
   "filter.reset": "Temizle",
   "gallery.showAll": "Tüm fotoğraflar ({n})",
   "detail.openInMaps": "Google Haritalar'da aç",
+  "theme.dark": "Koyu temaya geç",
+  "theme.light": "Açık temaya geç",
 };
 
 export type TKey = keyof typeof tr;
@@ -482,6 +484,8 @@ const en: Record<TKey, string> = {
   "filter.reset": "Reset",
   "gallery.showAll": "Show all photos ({n})",
   "detail.openInMaps": "Open in Google Maps",
+  "theme.dark": "Switch to dark mode",
+  "theme.light": "Switch to light mode",
 };
 
 const dictionaries: Record<Lang, Record<TKey, string>> = { tr, en };
@@ -501,7 +505,7 @@ function initialLang(): Lang {
   } catch {
     // storage unavailable
   }
-  return navigator.language?.toLowerCase().startsWith("tr") ? "tr" : "en";
+  return "tr";
 }
 
 export function LangProvider({ children }: { children: ReactNode }) {

@@ -64,8 +64,8 @@ export default function Auth({ mode }: { mode: Mode }) {
           <span className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-2xl bg-brand-700 text-white shadow">
             <Building2 size={24} />
           </span>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">{isLogin ? t("auth.loginTitle") : t("auth.registerTitle")}</h1>
-          <p className="mt-1 text-slate-500">{isLogin ? t("auth.loginSubtitle") : t("auth.registerSubtitle")}</p>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">{isLogin ? t("auth.loginTitle") : t("auth.registerTitle")}</h1>
+          <p className="mt-1 text-slate-500 dark:text-slate-400">{isLogin ? t("auth.loginSubtitle") : t("auth.registerSubtitle")}</p>
         </div>
         <form onSubmit={submit} noValidate className="card space-y-4 p-6">
           {!isLogin && (
@@ -105,9 +105,9 @@ export default function Auth({ mode }: { mode: Mode }) {
             {isLogin ? t("nav.login") : t("auth.createAccount")}
           </button>
         </form>
-        <p className="mt-5 text-center text-sm text-slate-600">
+        <p className="mt-5 text-center text-sm text-slate-600 dark:text-slate-300">
           {isLogin ? t("auth.noAccount") : t("auth.haveAccount")}{" "}
-          <Link to={isLogin ? "/register" : "/login"} state={location.state} className="font-semibold text-brand-700 hover:underline">
+          <Link to={isLogin ? "/register" : "/login"} state={location.state} className="font-semibold text-brand-700 dark:text-brand-300 hover:underline">
             {isLogin ? t("nav.register") : t("nav.login")}
           </Link>
         </p>

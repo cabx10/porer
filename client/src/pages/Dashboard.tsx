@@ -30,7 +30,7 @@ function MyListings({ items, onDelete }: { items: Listing[]; onDelete: (l: Listi
     <div className="space-y-3">
       {items.map((l) => (
         <div key={l.id} className="card flex flex-col gap-4 p-3 sm:flex-row sm:items-center">
-          <Link to={`/listings/${l.id}`} className="h-24 w-full shrink-0 overflow-hidden rounded-xl bg-slate-100 sm:w-32">
+          <Link to={`/listings/${l.id}`} className="h-24 w-full shrink-0 overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800 sm:w-32">
             {l.photos[0] ? (
               <img src={l.photos[0]} alt="" className="h-full w-full object-cover" />
             ) : (
@@ -40,13 +40,13 @@ function MyListings({ items, onDelete }: { items: Listing[]; onDelete: (l: Listi
             )}
           </Link>
           <div className="min-w-0 flex-1">
-            <Link to={`/listings/${l.id}`} className="line-clamp-1 font-semibold text-slate-900 hover:text-brand-700">
+            <Link to={`/listings/${l.id}`} className="line-clamp-1 font-semibold text-slate-900 dark:text-white hover:text-brand-700 dark:hover:text-brand-300">
               {l.title}
             </Link>
-            <p className="mt-0.5 line-clamp-1 text-sm text-slate-500">{locationText(l)}</p>
+            <p className="mt-0.5 line-clamp-1 text-sm text-slate-500 dark:text-slate-400">{locationText(l)}</p>
             <p className="mt-1.5 text-sm">
-              <span className="font-bold text-slate-900">{formatPrice(l.price, t.lang)}</span>
-              <span className="text-slate-500"> {t("listing.perMonth")} · {l.area} m² · {t("listing.roomsCount", { n: l.rooms })}</span>
+              <span className="font-bold text-slate-900 dark:text-white">{formatPrice(l.price, t.lang)}</span>
+              <span className="text-slate-500 dark:text-slate-400"> {t("listing.perMonth")} · {l.area} m² · {t("listing.roomsCount", { n: l.rooms })}</span>
             </p>
           </div>
           <div className="flex gap-2 sm:flex-col lg:flex-row">
@@ -76,21 +76,21 @@ function IncomingRequests({ items, onDecide }: { items: Appointment[]; onDecide:
     <div className="space-y-3">
       {sorted.map((r) => (
         <div key={r.id} className="card flex flex-col gap-4 p-4 sm:flex-row sm:items-center">
-          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-700">
+          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-brand-50 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300">
             <CalendarClock size={22} />
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="font-semibold text-slate-900">{formatDateTime(r.date, t.lang)}</span>
+              <span className="font-semibold text-slate-900 dark:text-white">{formatDateTime(r.date, t.lang)}</span>
               <StatusBadge status={r.status} />
             </div>
-            <p className="mt-0.5 text-sm text-slate-600">
-              <b className="font-medium text-slate-800">{r.seeker?.name}</b> · {r.seeker?.email}
+            <p className="mt-0.5 text-sm text-slate-600 dark:text-slate-300">
+              <b className="font-medium text-slate-800 dark:text-slate-100">{r.seeker?.name}</b> · {r.seeker?.email}
             </p>
-            <Link to={`/listings/${r.listing.id}`} className="mt-0.5 line-clamp-1 text-sm text-brand-700 hover:underline">
+            <Link to={`/listings/${r.listing.id}`} className="mt-0.5 line-clamp-1 text-sm text-brand-700 dark:text-brand-300 hover:underline">
               {r.listing.title}
             </Link>
-            {r.message && <p className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-sm italic text-slate-600">“{r.message}”</p>}
+            {r.message && <p className="mt-2 rounded-lg bg-slate-50 dark:bg-slate-800/50 px-3 py-2 text-sm italic text-slate-600 dark:text-slate-300">“{r.message}”</p>}
           </div>
           {r.status === "PENDING" && (
             <div className="flex gap-2">
@@ -143,19 +143,19 @@ function MyRequests({ items }: { items: Appointment[] }) {
     <div className="space-y-3">
       {items.map((a) => (
         <div key={a.id} className="card flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
-          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-600">
+          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
             <CalendarClock size={22} />
           </div>
           <div className="min-w-0 flex-1">
-            <Link to={`/listings/${a.listing.id}`} className="line-clamp-1 font-semibold text-slate-900 hover:text-brand-700">
+            <Link to={`/listings/${a.listing.id}`} className="line-clamp-1 font-semibold text-slate-900 dark:text-white hover:text-brand-700 dark:hover:text-brand-300">
               {a.listing.title}
             </Link>
-            <p className="mt-0.5 text-sm text-slate-600">
+            <p className="mt-0.5 text-sm text-slate-600 dark:text-slate-300">
               {formatDateTime(a.date, t.lang)}
               {a.listing.city && ` · ${a.listing.city}`}
               {a.listing.price !== undefined && ` · ${formatPrice(a.listing.price, t.lang)} ${t("listing.perMonth")}`}
             </p>
-            {a.message && <p className="mt-1 text-sm italic text-slate-500">“{a.message}”</p>}
+            {a.message && <p className="mt-1 text-sm italic text-slate-500 dark:text-slate-400">“{a.message}”</p>}
           </div>
           <StatusBadge status={a.status} />
         </div>
@@ -227,27 +227,27 @@ export default function Dashboard() {
     <div className="page max-w-5xl py-8">
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">{t("dash.title")}</h1>
-          <p className="mt-1 text-slate-500">{t("dash.greeting", { name: user?.name ?? "" })}</p>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">{t("dash.title")}</h1>
+          <p className="mt-1 text-slate-500 dark:text-slate-400">{t("dash.greeting", { name: user?.name ?? "" })}</p>
         </div>
         <Link to="/listings/new" className="btn-primary self-start">
           <Plus size={18} /> {t("nav.newListing")}
         </Link>
       </div>
 
-      <div className="mb-6 flex gap-1 overflow-x-auto overflow-y-hidden border-b border-slate-200 [scrollbar-width:none]">
+      <div className="mb-6 flex gap-1 overflow-x-auto overflow-y-hidden border-b border-slate-200 dark:border-slate-800 [scrollbar-width:none]">
         {tabs.map((tb) => (
           <button
             key={tb.id}
             onClick={() => setParams(tb.id === "listings" ? {} : { tab: tb.id })}
             className={`-mb-px flex items-center gap-2 whitespace-nowrap border-b-2 px-4 py-3 text-sm font-semibold transition ${
-              tab === tb.id ? "border-brand-700 text-brand-800" : "border-transparent text-slate-500 hover:text-slate-800"
+              tab === tb.id ? "border-brand-700 text-brand-800 dark:text-brand-200" : "border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-100"
             }`}
           >
             {tb.label}
             <span
               className={`rounded-full px-2 py-0.5 text-xs ${
-                tb.highlight ? "bg-amber-100 text-amber-800" : tab === tb.id ? "bg-brand-100 text-brand-800" : "bg-slate-100 text-slate-600"
+                tb.highlight ? "bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300" : tab === tb.id ? "bg-brand-100 dark:bg-brand-900/60 text-brand-800 dark:text-brand-200" : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
               }`}
             >
               {tb.count}
@@ -262,7 +262,7 @@ export default function Dashboard() {
 
       <Modal open={toDelete !== null} onClose={() => setToDelete(null)} title={t("dash.deleteTitle")}>
         <div className="space-y-5 p-5">
-          <p className="text-sm text-slate-600">{t("dash.deleteText", { title: toDelete?.title ?? "" })}</p>
+          <p className="text-sm text-slate-600 dark:text-slate-300">{t("dash.deleteText", { title: toDelete?.title ?? "" })}</p>
           <div className="flex justify-end gap-2">
             <button onClick={() => setToDelete(null)} className="btn-secondary">
               {t("common.cancel")}

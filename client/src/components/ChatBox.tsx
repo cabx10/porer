@@ -74,13 +74,13 @@ export default function ChatBox({
 
   return (
     <div className={`flex min-h-0 flex-col ${className}`}>
-      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto bg-slate-50 p-4">
+      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto bg-slate-50 dark:bg-slate-800/50 p-4">
         {messages === null ? (
-          <div className="grid h-full place-items-center text-brand-700">
+          <div className="grid h-full place-items-center text-brand-700 dark:text-brand-300">
             <Spinner />
           </div>
         ) : messages.length === 0 ? (
-          <p className="py-10 text-center text-sm text-slate-500">{t("messages.startHint")}</p>
+          <p className="py-10 text-center text-sm text-slate-500 dark:text-slate-400">{t("messages.startHint")}</p>
         ) : (
           messages.map((m) => {
             const mine = m.senderId === user?.id;
@@ -88,7 +88,7 @@ export default function ChatBox({
               <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
                 <div
                   className={`max-w-[78%] rounded-2xl px-3.5 py-2 text-sm shadow-sm ${
-                    mine ? "rounded-br-md bg-brand-700 text-white" : "rounded-bl-md bg-white text-slate-800 ring-1 ring-slate-200"
+                    mine ? "rounded-br-md bg-brand-700 text-white" : "rounded-bl-md bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 ring-1 ring-slate-200 dark:ring-slate-700"
                   }`}
                 >
                   <p className="whitespace-pre-wrap break-words">{m.content}</p>
@@ -100,7 +100,7 @@ export default function ChatBox({
         )}
         <div ref={bottomRef} />
       </div>
-      <form onSubmit={send} className="flex gap-2 border-t border-slate-200 bg-white p-3">
+      <form onSubmit={send} className="flex gap-2 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3">
         <input className="input" value={text} onChange={(e) => setText(e.target.value)} placeholder={t("messages.placeholder")} maxLength={2000} />
         <button className="btn-primary px-3.5" disabled={!text.trim() || sending} aria-label={t("messages.send")}>
           {sending ? <Spinner className="h-4 w-4" /> : <SendHorizontal size={18} />}

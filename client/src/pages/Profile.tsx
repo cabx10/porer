@@ -36,16 +36,16 @@ export default function Profile() {
 
   return (
     <div className="page max-w-xl py-10">
-      <h1 className="text-2xl font-bold tracking-tight text-slate-900">{t("nav.profile")}</h1>
-      <p className="mb-6 mt-1 text-slate-500">{t("profile.subtitle")}</p>
+      <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">{t("nav.profile")}</h1>
+      <p className="mb-6 mt-1 text-slate-500 dark:text-slate-400">{t("profile.subtitle")}</p>
       <form onSubmit={submit} className="card space-y-5 p-6">
-        <div className="flex items-center gap-4 border-b border-slate-100 pb-5">
-          <span className="grid h-14 w-14 place-items-center rounded-full bg-brand-100 text-xl font-bold text-brand-800">
+        <div className="flex items-center gap-4 border-b border-slate-100 dark:border-slate-800 pb-5">
+          <span className="grid h-14 w-14 place-items-center rounded-full bg-brand-100 dark:bg-brand-900/60 text-xl font-bold text-brand-800 dark:text-brand-200">
             {user?.name.charAt(0).toLocaleUpperCase("tr")}
           </span>
           <div>
-            <p className="font-semibold text-slate-900">{user?.name}</p>
-            <p className="text-sm text-slate-500">{user?.email}</p>
+            <p className="font-semibold text-slate-900 dark:text-white">{user?.name}</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">{user?.email}</p>
           </div>
         </div>
         <Field label={t("auth.name")} error={errors.name}>

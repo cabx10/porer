@@ -100,19 +100,19 @@ export default function ListingDetail() {
 
   return (
     <div className="page py-6">
-      <Link to="/search" className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-brand-700">
+      <Link to="/search" className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-brand-700 dark:hover:text-brand-300">
         <ArrowLeft size={16} /> {t("detail.backToListings")}
       </Link>
 
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <TypeBadge type={l.type} className="mb-2 bg-brand-50 shadow-none ring-1 ring-brand-100" />
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{l.title}</h1>
-          <p className="mt-1.5 flex items-center gap-1.5 text-slate-500">
+          <TypeBadge type={l.type} className="mb-2 bg-brand-50 dark:bg-brand-900/40 shadow-none ring-1 ring-brand-100 dark:ring-brand-800" />
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-3xl">{l.title}</h1>
+          <p className="mt-1.5 flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
             <MapPin size={16} /> {locationText(l)}
           </p>
         </div>
-        <p className="text-sm text-slate-500">{t("detail.published", { date: formatDate(l.createdAt, t.lang) })}</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400">{t("detail.published", { date: formatDate(l.createdAt, t.lang) })}</p>
       </div>
 
       <div className="mb-8">
@@ -122,7 +122,7 @@ export default function ListingDetail() {
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_380px]">
         <div className="space-y-6">
           <section className="card p-5 sm:p-6">
-            <h2 className="mb-4 text-lg font-semibold text-slate-900">{t("detail.overview")}</h2>
+            <h2 className="mb-4 text-lg font-semibold text-slate-900 dark:text-white">{t("detail.overview")}</h2>
             <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
               {[
                 [t("detail.price"), `${formatPrice(l.price, t.lang)} ${t("listing.perMonth")}`],
@@ -130,33 +130,33 @@ export default function ListingDetail() {
                 [t("detail.rooms"), String(l.rooms)],
                 [t("detail.type"), t(`type.${l.type}`)],
               ].map(([k, v]) => (
-                <div key={k} className="rounded-xl bg-slate-50 p-3">
-                  <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">{k}</dt>
-                  <dd className="mt-1 font-semibold text-slate-900">{v}</dd>
+                <div key={k} className="rounded-xl bg-slate-50 dark:bg-slate-800/50 p-3">
+                  <dt className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">{k}</dt>
+                  <dd className="mt-1 font-semibold text-slate-900 dark:text-white">{v}</dd>
                 </div>
               ))}
             </dl>
             {l.description && (
               <>
-                <h3 className="mb-2 mt-6 font-semibold text-slate-900">{t("detail.description")}</h3>
-                <p className="whitespace-pre-wrap leading-relaxed text-slate-600">{l.description}</p>
+                <h3 className="mb-2 mt-6 font-semibold text-slate-900 dark:text-white">{t("detail.description")}</h3>
+                <p className="whitespace-pre-wrap leading-relaxed text-slate-600 dark:text-slate-300">{l.description}</p>
               </>
             )}
           </section>
 
           <section className="card p-5 sm:p-6">
             <div className="mb-1 flex items-center justify-between gap-3">
-              <h2 className="text-lg font-semibold text-slate-900">{t("detail.location")}</h2>
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">{t("detail.location")}</h2>
               <a
                 href={`https://www.google.com/maps/search/?api=1&query=${l.lat},${l.lng}`}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-1 text-sm font-semibold text-brand-700 hover:underline"
+                className="inline-flex items-center gap-1 text-sm font-semibold text-brand-700 dark:text-brand-300 hover:underline"
               >
                 {t("detail.openInMaps")} <ExternalLink size={14} />
               </a>
             </div>
-            <p className="mb-4 text-sm text-slate-500">{[l.address, locationText(l)].filter(Boolean).join(" · ")}</p>
+            <p className="mb-4 text-sm text-slate-500 dark:text-slate-400">{[l.address, locationText(l)].filter(Boolean).join(" · ")}</p>
             <MapView className="h-72" markers={[{ id: l.id, lat: l.lat, lng: l.lng }]} center={{ lat: l.lat, lng: l.lng }} zoom={15} />
           </section>
         </div>
@@ -164,18 +164,18 @@ export default function ListingDetail() {
         <aside className="lg:sticky lg:top-24 lg:self-start">
           <div className="card space-y-5 p-5">
             <div>
-              <span className="text-3xl font-bold text-slate-900">{formatPrice(l.price, t.lang)}</span>
-              <span className="ml-1 text-slate-500">{t("listing.perMonth")}</span>
+              <span className="text-3xl font-bold text-slate-900 dark:text-white">{formatPrice(l.price, t.lang)}</span>
+              <span className="ml-1 text-slate-500 dark:text-slate-400">{t("listing.perMonth")}</span>
               <ListingSpecs l={l} className="mt-2" />
             </div>
 
-            <div className="flex items-center gap-3 rounded-xl bg-slate-50 p-3">
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand-100 font-bold text-brand-800">
+            <div className="flex items-center gap-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 p-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand-100 dark:bg-brand-900/60 font-bold text-brand-800 dark:text-brand-200">
                 {l.owner?.name.charAt(0).toLocaleUpperCase("tr")}
               </span>
               <div className="min-w-0">
-                <p className="text-xs text-slate-500">{t("detail.owner")}</p>
-                <p className="truncate font-semibold text-slate-900">{l.owner?.name}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{t("detail.owner")}</p>
+                <p className="truncate font-semibold text-slate-900 dark:text-white">{l.owner?.name}</p>
               </div>
               {l.owner?.phone && user && !isOwner && (
                 <a href={`tel:${l.owner.phone}`} className="btn-secondary btn-sm ml-auto">
@@ -186,7 +186,7 @@ export default function ListingDetail() {
 
             {isOwner ? (
               <div className="space-y-3">
-                <p className="rounded-xl bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700">{t("detail.yourListing")}</p>
+                <p className="rounded-xl bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">{t("detail.yourListing")}</p>
                 <Link to={`/listings/${l.id}/edit`} className="btn-secondary w-full">
                   <Pencil size={16} /> {t("detail.edit")}
                 </Link>
@@ -194,7 +194,7 @@ export default function ListingDetail() {
             ) : user ? (
               <>
                 <div>
-                  <h3 className="mb-3 font-semibold text-slate-900">{t("viewing.title")}</h3>
+                  <h3 className="mb-3 font-semibold text-slate-900 dark:text-white">{t("viewing.title")}</h3>
                   <ViewingForm listingId={l.id} />
                 </div>
                 <button onClick={() => setChatOpen(true)} className="btn-secondary w-full">
@@ -203,7 +203,7 @@ export default function ListingDetail() {
               </>
             ) : (
               <div className="space-y-3 text-center">
-                <p className="text-sm text-slate-600">{t("detail.loginToContact")}</p>
+                <p className="text-sm text-slate-600 dark:text-slate-300">{t("detail.loginToContact")}</p>
                 <Link to="/login" state={{ from: location.pathname }} className="btn-primary w-full">
                   {t("nav.login")}
                 </Link>
@@ -219,7 +219,7 @@ export default function ListingDetail() {
           onClose={() => setChatOpen(false)}
           title={
             <span>
-              {l.owner?.name} <span className="font-normal text-slate-500">· {l.title}</span>
+              {l.owner?.name} <span className="font-normal text-slate-500 dark:text-slate-400">· {l.title}</span>
             </span>
           }
         >

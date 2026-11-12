@@ -1,6 +1,7 @@
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import { LangProvider } from "./i18n";
+import { ThemeProvider } from "./theme";
 import { AuthProvider, RequireAuth } from "./auth";
 import { SocketProvider } from "./socket";
 import Layout from "./components/Layout";
@@ -16,11 +17,12 @@ import NotFound from "./pages/NotFound";
 
 export default function App() {
   return (
+    <ThemeProvider>
     <LangProvider>
       <BrowserRouter>
         <AuthProvider>
           <SocketProvider>
-            <Toaster position="top-center" toastOptions={{ className: "!rounded-xl !text-sm !shadow-lg", duration: 3500 }} />
+            <Toaster position="top-center" toastOptions={{ className: "!rounded-xl !text-sm !shadow-lg dark:!bg-slate-800 dark:!text-slate-100", duration: 3500 }} />
             <Routes>
               <Route element={<Layout />}>
                 <Route index element={<Home />} />
@@ -40,5 +42,6 @@ export default function App() {
         </AuthProvider>
       </BrowserRouter>
     </LangProvider>
+    </ThemeProvider>
   );
 }

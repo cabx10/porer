@@ -39,12 +39,12 @@ function HeroSearch() {
     navigate(`/search?${qs}`);
   };
 
-  const field = "flex flex-1 flex-col rounded-xl px-4 py-2.5 text-left transition hover:bg-slate-50 focus-within:bg-slate-50";
-  const label = "text-[11px] font-semibold uppercase tracking-wider text-slate-500";
-  const control = "w-full bg-transparent text-[15px] font-medium text-slate-900 outline-none placeholder:font-normal placeholder:text-slate-400";
+  const field = "flex flex-1 flex-col rounded-xl px-4 py-2.5 text-left transition hover:bg-slate-50 dark:hover:bg-slate-800 focus-within:bg-slate-50";
+  const label = "text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400";
+  const control = "w-full bg-transparent text-[15px] font-medium text-slate-900 dark:text-white outline-none placeholder:font-normal placeholder:text-slate-400";
 
   return (
-    <form onSubmit={submit} className="flex flex-col gap-1 rounded-2xl bg-white p-2 shadow-2xl shadow-brand-950/30 md:flex-row md:items-center">
+    <form onSubmit={submit} className="flex flex-col gap-1 rounded-2xl bg-white dark:bg-slate-900 p-2 shadow-2xl shadow-brand-950/30 md:flex-row md:items-center">
       <label className={field}>
         <span className={label}>{t("hero.type")}</span>
         <select className={control} value={type} onChange={(e) => setType(e.target.value as ListingType | "")}>
@@ -53,7 +53,7 @@ function HeroSearch() {
           <option value="OFFICE">{t("type.OFFICE")}</option>
         </select>
       </label>
-      <span className="hidden h-10 w-px bg-slate-200 md:block" />
+      <span className="hidden h-10 w-px bg-slate-200 dark:bg-slate-800 md:block" />
       <label className={field}>
         <span className={label}>{t("hero.where")}</span>
         <select className={control} value={district} onChange={(e) => setDistrict(e.target.value)}>
@@ -65,7 +65,7 @@ function HeroSearch() {
           ))}
         </select>
       </label>
-      <span className="hidden h-10 w-px bg-slate-200 md:block" />
+      <span className="hidden h-10 w-px bg-slate-200 dark:bg-slate-800 md:block" />
       <label className={field}>
         <span className={label}>{t("hero.budget")}</span>
         <input className={control} type="number" min={0} placeholder={t("hero.budgetPlaceholder")} value={maxPrice} onChange={(e) => setMaxPrice(e.target.value)} />
@@ -89,20 +89,20 @@ function HeroVisual({ l }: { l: Listing }) {
           <p className="mt-0.5 line-clamp-1 text-sm text-white/75">{locationText(l)}</p>
         </div>
       </div>
-      <div className="absolute -left-10 top-10 rounded-2xl bg-white px-4 py-3 shadow-xl">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">{t("hero.newest")}</p>
-        <p className="text-xl font-bold text-slate-900">
+      <div className="absolute -left-10 top-10 rounded-2xl bg-white dark:bg-slate-900 px-4 py-3 shadow-xl">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">{t("hero.newest")}</p>
+        <p className="text-xl font-bold text-slate-900 dark:text-white">
           {formatPrice(l.price, t.lang)}
-          <span className="text-sm font-normal text-slate-500"> {t("listing.perMonth")}</span>
+          <span className="text-sm font-normal text-slate-500 dark:text-slate-400"> {t("listing.perMonth")}</span>
         </p>
       </div>
-      <div className="absolute -right-6 bottom-24 flex items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-xl">
+      <div className="absolute -right-6 bottom-24 flex items-center gap-3 rounded-2xl bg-white dark:bg-slate-900 px-4 py-3 shadow-xl">
         <span className="grid h-9 w-9 place-items-center rounded-full bg-emerald-100 text-emerald-700">
           <CalendarCheck size={18} />
         </span>
         <div>
-          <p className="text-sm font-semibold text-slate-900">{t("hero.viewingCard")}</p>
-          <p className="text-xs text-slate-500">{t("hero.viewingCardSub")}</p>
+          <p className="text-sm font-semibold text-slate-900 dark:text-white">{t("hero.viewingCard")}</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">{t("hero.viewingCardSub")}</p>
         </div>
       </div>
     </Link>
@@ -113,11 +113,11 @@ function SectionHeader({ title, subtitle, link }: { title: string; subtitle?: st
   return (
     <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
       <div>
-        <h2 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{title}</h2>
-        {subtitle && <p className="mt-2 text-slate-500">{subtitle}</p>}
+        <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-3xl">{title}</h2>
+        {subtitle && <p className="mt-2 text-slate-500 dark:text-slate-400">{subtitle}</p>}
       </div>
       {link && (
-        <Link to={link.to} className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-700 hover:text-brand-900">
+        <Link to={link.to} className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-700 dark:text-brand-300 hover:text-brand-900">
           {link.label} <ArrowRight size={16} />
         </Link>
       )}
@@ -205,7 +205,7 @@ export default function Home() {
           </div>
         ) : latest.length === 0 ? (
           <div className="card flex flex-col items-center gap-4 p-10 text-center">
-            <p className="text-slate-600">{t("home.noListingsYet")}</p>
+            <p className="text-slate-600 dark:text-slate-300">{t("home.noListingsYet")}</p>
             <Link to="/listings/new" className="btn-primary">
               {t("nav.newListing")}
             </Link>
@@ -219,7 +219,7 @@ export default function Home() {
         )}
       </section>
 
-      <section className="border-y border-slate-200 bg-white">
+      <section className="border-y border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
         <div className="page py-16 sm:py-20">
           <SectionHeader title={t("home.districts", { city: CITY })} subtitle={t("home.districtsSub")} />
           <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
@@ -227,16 +227,16 @@ export default function Home() {
               <Link
                 key={d}
                 to={`/search?city=${encodeURIComponent(CITY)}&district=${encodeURIComponent(d)}`}
-                className="group relative overflow-hidden rounded-2xl border border-slate-200 p-5 transition hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-card"
+                className="group relative overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 p-5 transition hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-card"
               >
                 <div
-                  className={`absolute -right-6 -top-6 h-24 w-24 rounded-full opacity-60 transition group-hover:scale-125 ${
-                    ["bg-brand-100", "bg-sky-100", "bg-indigo-100", "bg-slate-100", "bg-blue-100", "bg-cyan-100"][i % 6]
+                  className={`absolute -right-6 -top-6 h-24 w-24 rounded-full opacity-60 transition dark:opacity-10 group-hover:scale-125 ${
+                    ["bg-brand-100 dark:bg-brand-900/60", "bg-sky-100", "bg-indigo-100", "bg-slate-100 dark:bg-slate-800", "bg-blue-100", "bg-cyan-100"][i % 6]
                   }`}
                 />
-                <Building2 size={22} className="relative text-brand-700" />
-                <p className="relative mt-6 text-lg font-semibold text-slate-900">{d}</p>
-                <p className="relative text-sm text-slate-500">
+                <Building2 size={22} className="relative text-brand-700 dark:text-brand-300" />
+                <p className="relative mt-6 text-lg font-semibold text-slate-900 dark:text-white">{d}</p>
+                <p className="relative text-sm text-slate-500 dark:text-slate-400">
                   {districtCounts[d] === undefined ? "…" : t("home.listingCount", { n: districtCounts[d] })}
                 </p>
               </Link>
@@ -254,8 +254,8 @@ export default function Home() {
               <span className="relative grid h-12 w-12 place-items-center rounded-xl bg-brand-700 text-white">
                 <Icon size={22} />
               </span>
-              <h3 className="relative mt-5 text-lg font-semibold text-slate-900">{title}</h3>
-              <p className="relative mt-2 leading-relaxed text-slate-500">{text}</p>
+              <h3 className="relative mt-5 text-lg font-semibold text-slate-900 dark:text-white">{title}</h3>
+              <p className="relative mt-2 leading-relaxed text-slate-500 dark:text-slate-400">{text}</p>
             </div>
           ))}
         </div>
@@ -272,7 +272,7 @@ export default function Home() {
               <h2 className="text-2xl font-bold text-white sm:text-3xl">{t("cta.title")}</h2>
               <p className="mt-2 text-brand-100">{t("cta.text")}</p>
             </div>
-            <Link to="/listings/new" className="btn h-12 shrink-0 bg-white px-6 text-base text-brand-800 hover:bg-brand-50">
+            <Link to="/listings/new" className="btn h-12 shrink-0 bg-white dark:bg-slate-900 px-6 text-base text-brand-800 dark:text-brand-200 hover:bg-brand-50 dark:hover:bg-brand-900/40">
               {t("cta.button")} <ArrowRight size={18} />
             </Link>
           </div>

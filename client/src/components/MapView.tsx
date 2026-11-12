@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { GoogleMap, Marker, OverlayView, useJsApiLoader } from "@react-google-maps/api";
 import { MapPinOff } from "lucide-react";
 import { useT, formatPriceShort } from "../i18n";
+import { useTheme } from "../theme";
 
 export interface MapMarker {
   id: number;
@@ -34,12 +35,29 @@ const mapOptions: google.maps.MapOptions = {
   fullscreenControl: false,
   clickableIcons: false,
   gestureHandling: "greedy",
-  // Hide shops, restaurants and transit icons so the listing pins stand out.
-  styles: [
-    { featureType: "poi", stylers: [{ visibility: "off" }] },
-    { featureType: "transit", stylers: [{ visibility: "off" }] },
-  ],
 };
+
+// Hide shops, restaurants and transit icons so the listing pins stand out.
+const baseStyles: google.maps.MapTypeStyle[] = [
+  { featureType: "poi", stylers: [{ visibility: "off" }] },
+  { featureType: "transit", stylers: [{ visibility: "off" }] },
+];
+
+// Navy-tinted night palette matching the site's dark theme.
+const darkStyles: google.maps.MapTypeStyle[] = [
+  ...baseStyles,
+  { elementType: "geometry", stylers: [{ color: "#16213a" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#8ea2c4" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#0d1830" }] },
+  { featureType: "administrative", elementType: "geometry.stroke", stylers: [{ color: "#2d3d5c" }] },
+  { featureType: "landscape.natural", elementType: "geometry", stylers: [{ color: "#1a2742" }] },
+  { featureType: "road", elementType: "geometry", stylers: [{ color: "#26365a" }] },
+  { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#16213a" }] },
+  { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#33477a" }] },
+  { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#9bb0d3" }] },
+  { featureType: "water", elementType: "geometry", stylers: [{ color: "#0b1426" }] },
+  { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#4b6290" }] },
+];
 
 export default function MapView({
   markers,
@@ -54,6 +72,7 @@ export default function MapView({
   pickLocation,
 }: Props) {
   const t = useT();
+  const { theme } = useTheme();
   const { isLoaded, loadError } = useJsApiLoader({ googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_KEY || "" });
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [initialCenter] = useState(() => center ?? markers[0] ?? ADANA);
@@ -77,14 +96,14 @@ export default function MapView({
 
   if (loadError)
     return (
-      <div className={`grid place-items-center rounded-2xl bg-slate-100 text-sm text-slate-500 ${className}`}>
+      <div className={`grid place-items-center rounded-2xl bg-slate-100 dark:bg-slate-800 text-sm text-slate-500 dark:text-slate-400 ${className}`}>
         <div className="flex flex-col items-center gap-2">
           <MapPinOff size={22} />
           {t("map.error")}
         </div>
       </div>
     );
-  if (!isLoaded) return <div className={`animate-pulse rounded-2xl bg-slate-100 ${className}`} />;
+  if (!isLoaded) return <div className={`animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-800 ${className}`} />;
 
   return (
     <div className={`overflow-hidden rounded-2xl ${className}`}>
@@ -92,7 +111,7 @@ export default function MapView({
         mapContainerStyle={{ width: "100%", height: "100%" }}
         center={initialCenter}
         zoom={zoom}
-        options={{ ...mapOptions, draggableCursor: pickLocation ? "crosshair" : undefined }}
+        options={{ ...mapOptions, styles: theme === "dark" ? darkStyles : baseStyles, backgroundColor: theme === "dark" ? "#16213a" : "#e8eaed", draggableCursor: pickLocation ? "crosshair" : undefined }}
         onLoad={setMap}
         onClick={(e) => e.latLng && onMapClick?.(e.latLng.lat(), e.latLng.lng())}
       >
@@ -114,7 +133,7 @@ export default function MapView({
                 className={`relative whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-bold shadow-md ring-1 transition ${
                   activeId === m.id
                     ? "z-10 scale-110 bg-brand-700 text-white ring-brand-800"
-                    : "bg-white text-slate-900 ring-slate-200 hover:bg-brand-50"
+                    : "bg-white dark:bg-slate-900 text-slate-900 dark:text-white ring-slate-200 dark:ring-slate-700 hover:bg-brand-50 dark:hover:bg-brand-900/40"
                 }`}
               >
                 {formatPriceShort(m.price, t.lang)}

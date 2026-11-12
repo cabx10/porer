@@ -74,7 +74,7 @@ export default function PhotoGallery({ photos, title }: { photos: string[]; titl
 
   if (count === 0)
     return (
-      <div className="grid aspect-[16/9] place-items-center rounded-2xl bg-slate-100 text-slate-400 md:aspect-[21/9]">
+      <div className="grid aspect-[16/9] place-items-center rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400 md:aspect-[21/9]">
         <div className="flex flex-col items-center gap-2 text-sm">
           <ImageOff size={32} />
           {t("gallery.noPhotos")}
@@ -83,7 +83,7 @@ export default function PhotoGallery({ photos, title }: { photos: string[]; titl
     );
 
   const tile = (i: number, className = "") => (
-    <button key={photos[i]} onClick={() => setOpen(i)} className={`group relative overflow-hidden bg-slate-100 ${className}`}>
+    <button key={photos[i]} onClick={() => setOpen(i)} className={`group relative overflow-hidden bg-slate-100 dark:bg-slate-800 ${className}`}>
       <img src={photos[i]} alt={i === 0 ? title : ""} className="h-full w-full object-cover transition duration-300 group-hover:scale-105 group-hover:brightness-90" />
     </button>
   );
@@ -93,20 +93,20 @@ export default function PhotoGallery({ photos, title }: { photos: string[]; titl
   return (
     <>
       {/* Phones: one photo with arrows */}
-      <div className="relative aspect-[4/3] overflow-hidden rounded-2xl bg-slate-100 md:hidden">
+      <div className="relative aspect-[4/3] overflow-hidden rounded-2xl bg-slate-100 dark:bg-slate-800 md:hidden">
         <img src={photos[mobileIndex]} alt={title} className="h-full w-full object-cover" onClick={() => setOpen(mobileIndex)} />
         {count > 1 && (
           <>
             <button
               onClick={() => setMobileIndex((i) => (i - 1 + count) % count)}
-              className="absolute left-2 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full bg-white/90 shadow"
+              className="absolute left-2 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full bg-white/90 dark:bg-slate-900/90 shadow"
               aria-label="previous"
             >
               <ChevronLeft size={18} />
             </button>
             <button
               onClick={() => setMobileIndex((i) => (i + 1) % count)}
-              className="absolute right-2 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full bg-white/90 shadow"
+              className="absolute right-2 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full bg-white/90 dark:bg-slate-900/90 shadow"
               aria-label="next"
             >
               <ChevronRight size={18} />
@@ -131,7 +131,7 @@ export default function PhotoGallery({ photos, title }: { photos: string[]; titl
         )}
         <button
           onClick={() => setOpen(0)}
-          className="absolute bottom-4 right-4 inline-flex items-center gap-2 rounded-lg border border-slate-900/10 bg-white px-3.5 py-2 text-sm font-semibold text-slate-900 shadow-md transition hover:bg-slate-50"
+          className="absolute bottom-4 right-4 inline-flex items-center gap-2 rounded-lg border border-slate-900/10 bg-white dark:bg-slate-900 px-3.5 py-2 text-sm font-semibold text-slate-900 dark:text-white shadow-md transition hover:bg-slate-50 dark:hover:bg-slate-800"
         >
           <Grid3x3 size={16} /> {t("gallery.showAll", { n: count })}
         </button>
