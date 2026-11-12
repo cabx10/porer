@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
-import { ArrowLeft, CalendarCheck, MapPin, MessageCircle, Pencil, Phone, SearchX } from "lucide-react";
+import { ArrowLeft, CalendarCheck, ExternalLink, MapPin, MessageCircle, Pencil, Phone, SearchX } from "lucide-react";
 import toast from "react-hot-toast";
 import { api, ApiError } from "../api";
 import { useAuth } from "../auth";
@@ -87,7 +87,7 @@ export default function ListingDetail() {
           title={status === "notFound" ? t("detail.notFound") : t("common.loadError")}
           text={status === "notFound" ? t("detail.notFoundText") : undefined}
           action={
-            <Link to="/" className="btn-primary">
+            <Link to="/search" className="btn-primary">
               {t("detail.backToListings")}
             </Link>
           }
@@ -100,7 +100,7 @@ export default function ListingDetail() {
 
   return (
     <div className="page py-6">
-      <Link to="/" className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-brand-700">
+      <Link to="/search" className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-brand-700">
         <ArrowLeft size={16} /> {t("detail.backToListings")}
       </Link>
 
@@ -115,10 +115,12 @@ export default function ListingDetail() {
         <p className="text-sm text-slate-500">{t("detail.published", { date: formatDate(l.createdAt, t.lang) })}</p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="space-y-6">
-          <PhotoGallery photos={l.photos} title={l.title} />
+      <div className="mb-8">
+        <PhotoGallery photos={l.photos} title={l.title} />
+      </div>
 
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_380px]">
+        <div className="space-y-6">
           <section className="card p-5 sm:p-6">
             <h2 className="mb-4 text-lg font-semibold text-slate-900">{t("detail.overview")}</h2>
             <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
@@ -143,7 +145,17 @@ export default function ListingDetail() {
           </section>
 
           <section className="card p-5 sm:p-6">
-            <h2 className="mb-1 text-lg font-semibold text-slate-900">{t("detail.location")}</h2>
+            <div className="mb-1 flex items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold text-slate-900">{t("detail.location")}</h2>
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${l.lat},${l.lng}`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 text-sm font-semibold text-brand-700 hover:underline"
+              >
+                {t("detail.openInMaps")} <ExternalLink size={14} />
+              </a>
+            </div>
             <p className="mb-4 text-sm text-slate-500">{[l.address, locationText(l)].filter(Boolean).join(" · ")}</p>
             <MapView className="h-72" markers={[{ id: l.id, lat: l.lat, lng: l.lng }]} center={{ lat: l.lat, lng: l.lng }} zoom={15} />
           </section>

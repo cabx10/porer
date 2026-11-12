@@ -100,7 +100,7 @@ export default function Layout() {
             </span>
           </Link>
 
-          <NavLink to="/" end className={navLink}>
+          <NavLink to="/search" className={navLink}>
             <Search size={16} /> {t("nav.search")}
           </NavLink>
           {user && (
@@ -119,7 +119,10 @@ export default function Layout() {
             </>
           ) : (
             <>
-              <Link to="/login" className="btn-ghost hidden sm:inline-flex">
+              <Link to="/listings/new" className="btn-ghost hidden md:inline-flex">
+                <Plus size={16} /> {t("nav.newListing")}
+              </Link>
+              <Link to="/login" className="btn-secondary hidden sm:inline-flex">
                 {t("nav.login")}
               </Link>
               <Link to="/register" className="btn-primary">
@@ -134,10 +137,63 @@ export default function Layout() {
         <Outlet />
       </main>
 
-      <footer className="border-t border-slate-200 bg-white">
-        <div className="page flex flex-col items-center justify-between gap-2 py-6 text-xs text-slate-500 sm:flex-row">
-          <span>© 2026 Real Estate Rental</span>
-          <span>{t("footer.tagline")}</span>
+      <footer className="bg-brand-950 text-brand-100">
+        <div className="page grid gap-10 py-14 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="lg:col-span-2">
+            <div className="flex items-center gap-2.5">
+              <span className="grid h-9 w-9 place-items-center rounded-xl bg-white/10 text-white">
+                <Building2 size={19} />
+              </span>
+              <span className="font-bold text-white">Real Estate Rental</span>
+            </div>
+            <p className="mt-4 max-w-sm text-sm leading-relaxed text-brand-200">{t("footer.about")}</p>
+          </div>
+          <div>
+            <h4 className="text-sm font-semibold text-white">{t("footer.explore")}</h4>
+            <ul className="mt-4 space-y-2.5 text-sm">
+              <li>
+                <Link to="/search?type=HOME" className="hover:text-white">
+                  {t("footer.homes")}
+                </Link>
+              </li>
+              <li>
+                <Link to="/search?type=OFFICE" className="hover:text-white">
+                  {t("footer.offices")}
+                </Link>
+              </li>
+              <li>
+                <Link to="/search?view=map" className="hover:text-white">
+                  {t("footer.mapSearch")}
+                </Link>
+              </li>
+            </ul>
+          </div>
+          <div>
+            <h4 className="text-sm font-semibold text-white">{t("footer.owners")}</h4>
+            <ul className="mt-4 space-y-2.5 text-sm">
+              <li>
+                <Link to="/listings/new" className="hover:text-white">
+                  {t("nav.newListing")}
+                </Link>
+              </li>
+              <li>
+                <Link to="/dashboard" className="hover:text-white">
+                  {t("nav.dashboard")}
+                </Link>
+              </li>
+              <li>
+                <Link to="/messages" className="hover:text-white">
+                  {t("nav.messages")}
+                </Link>
+              </li>
+            </ul>
+          </div>
+        </div>
+        <div className="border-t border-white/10">
+          <div className="page flex flex-col items-center justify-between gap-2 py-5 text-xs text-brand-300 sm:flex-row">
+            <span>© 2026 Real Estate Rental</span>
+            <span>{t("footer.tagline")}</span>
+          </div>
         </div>
       </footer>
     </div>

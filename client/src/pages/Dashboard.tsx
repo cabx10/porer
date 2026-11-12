@@ -133,7 +133,7 @@ function MyRequests({ items }: { items: Appointment[] }) {
         title={t("dash.noRequests")}
         text={t("dash.noRequestsText")}
         action={
-          <Link to="/" className="btn-primary">
+          <Link to="/search" className="btn-primary">
             {t("nav.search")}
           </Link>
         }

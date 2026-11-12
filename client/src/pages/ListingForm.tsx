@@ -274,6 +274,7 @@ export default function ListingForm() {
               </div>
               <p className="mb-3 text-sm text-slate-500">{t("form.pinHint")}</p>
               <MapView
+                pickLocation
                 className={`h-80 ${errors.lat ? "ring-2 ring-red-400" : ""}`}
                 center={mapCenter}
                 zoom={form.lat !== null ? 15 : 11}

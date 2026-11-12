@@ -20,6 +20,8 @@ interface Props {
   onSelect?: (id: number) => void;
   onHover?: (id: number | null) => void;
   onMapClick?: (lat: number, lng: number) => void;
+  /** Show a crosshair cursor: the map is used to pick a location. */
+  pickLocation?: boolean;
   /** Zoom the map to show every marker whenever the marker list changes. */
   fitToMarkers?: boolean;
 }
@@ -49,6 +51,7 @@ export default function MapView({
   onHover,
   onMapClick,
   fitToMarkers,
+  pickLocation,
 }: Props) {
   const t = useT();
   const { isLoaded, loadError } = useJsApiLoader({ googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_KEY || "" });
@@ -89,7 +92,7 @@ export default function MapView({
         mapContainerStyle={{ width: "100%", height: "100%" }}
         center={initialCenter}
         zoom={zoom}
-        options={{ ...mapOptions, draggableCursor: onMapClick ? "crosshair" : undefined }}
+        options={{ ...mapOptions, draggableCursor: pickLocation ? "crosshair" : undefined }}
         onLoad={setMap}
         onClick={(e) => e.latLng && onMapClick?.(e.latLng.lat(), e.latLng.lng())}
       >
@@ -103,6 +106,8 @@ export default function MapView({
             >
               <button
                 type="button"
+                // Keep pin clicks from also reaching the map's own click handler.
+                ref={(el) => el && google.maps.OverlayView.preventMapHitsAndGesturesFrom(el)}
                 onClick={() => onSelect?.(m.id)}
                 onMouseEnter={() => onHover?.(m.id)}
                 onMouseLeave={() => onHover?.(null)}

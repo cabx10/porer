@@ -45,7 +45,7 @@ export default function Messages() {
           title={t("messages.empty")}
           text={t("messages.emptyText")}
           action={
-            <Link to="/" className="btn-primary">
+            <Link to="/search" className="btn-primary">
               {t("nav.search")}
             </Link>
           }

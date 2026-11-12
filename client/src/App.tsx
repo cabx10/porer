@@ -4,7 +4,8 @@ import { LangProvider } from "./i18n";
 import { AuthProvider, RequireAuth } from "./auth";
 import { SocketProvider } from "./socket";
 import Layout from "./components/Layout";
-import Listings from "./pages/Listings";
+import Home from "./pages/Home";
+import Search from "./pages/Search";
 import ListingDetail from "./pages/ListingDetail";
 import ListingForm from "./pages/ListingForm";
 import Dashboard from "./pages/Dashboard";
@@ -22,7 +23,8 @@ export default function App() {
             <Toaster position="top-center" toastOptions={{ className: "!rounded-xl !text-sm !shadow-lg", duration: 3500 }} />
             <Routes>
               <Route element={<Layout />}>
-                <Route index element={<Listings />} />
+                <Route index element={<Home />} />
+                <Route path="search" element={<Search />} />
                 <Route path="listings/new" element={<RequireAuth><ListingForm /></RequireAuth>} />
                 <Route path="listings/:id" element={<ListingDetail />} />
                 <Route path="listings/:id/edit" element={<RequireAuth><ListingForm /></RequireAuth>} />
