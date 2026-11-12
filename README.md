@@ -16,6 +16,15 @@ The `api` container runs `prisma migrate deploy` on startup. If this is the very
 docker compose run --rm api npx prisma migrate dev --name init
 ```
 
+### Demo data
+Load 11 sample listings (homes, offices, shops, a warehouse) across Adana, owned by two demo accounts:
+```bash
+docker compose exec api npx prisma db seed
+```
+Running it again replaces the earlier demo data; other users' listings are not touched.
+Demo logins (password `demo1234`): `demo.emlak@example.com`, `demo.ayse@example.com`.
+Photos come from Pexels; see `server/prisma/seed-images/CREDITS.md`.
+
 ## Run without Docker (local Node)
 ```bash
 # API — requires a local Postgres, update server/.env accordingly
