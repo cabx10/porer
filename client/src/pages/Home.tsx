@@ -1,123 +1,111 @@
 import { FormEvent, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowRight, Building2, CalendarCheck, Home as HomeIcon, KeyRound, MessageCircle, Search, ShieldCheck } from "lucide-react";
+import { ArrowRight, Building2, CalendarCheck, Home as HomeIcon, MessageCircle, Search, Store } from "lucide-react";
 import { api } from "../api";
 import { Listing, ListingPage, ListingType } from "../types";
-import { useT, formatPrice } from "../i18n";
-import { locationText } from "../lib/format";
+import { useT } from "../i18n";
 import { locationData } from "../utils/locations";
 import ListingCard, { ListingCardSkeleton } from "../components/ListingCard";
 
 const CITY = "Adana";
+const ROOM_OPTIONS = ["1", "2", "3", "4", "5"];
 
-/** Simple skyline drawn behind the hero text. */
-function Skyline() {
-  return (
-    <svg className="pointer-events-none absolute inset-x-0 bottom-0 h-40 w-full text-white/[0.06]" viewBox="0 0 1200 160" preserveAspectRatio="none" aria-hidden>
-      <path
-        fill="currentColor"
-        d="M0 160V96h40V60h30v36h20V40h50v56h24V70h36v26h30V20h44v76h22V56h40v40h26V76h30v20h40V30h48v66h20V64h34v32h30V48h40v48h24V84h36V44h52v52h22V70h30v26h40V36h44v60h26V62h36v34h30V24h46v72h24V58h38v38h30V80h34v16h40V50h46v46h22V72h32v24h36v64z"
-      />
-    </svg>
-  );
-}
-
+/** Konut / İşyeri tabs over one search bar; the third field depends on the tab. */
 function HeroSearch() {
   const t = useT();
   const navigate = useNavigate();
-  const [type, setType] = useState<ListingType | "">("");
+  const [type, setType] = useState<ListingType>("HOME");
   const [district, setDistrict] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
+  const [rooms, setRooms] = useState("");
+  const [minArea, setMinArea] = useState("");
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    const qs = new URLSearchParams();
-    if (type) qs.set("type", type);
-    qs.set("city", CITY);
+    const qs = new URLSearchParams({ type, city: CITY });
     if (district) qs.set("district", district);
     if (maxPrice) qs.set("maxPrice", maxPrice);
+    if (type === "HOME" && rooms) qs.set("rooms", rooms);
+    if (type === "OFFICE" && minArea) qs.set("minArea", minArea);
     navigate(`/search?${qs}`);
   };
 
-  const field = "flex flex-1 flex-col rounded-xl px-4 py-2.5 text-left transition hover:bg-slate-50 dark:hover:bg-slate-800 focus-within:bg-slate-50";
-  const label = "text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400";
-  const control = "w-full bg-transparent text-[15px] font-medium text-slate-900 dark:text-white outline-none placeholder:font-normal placeholder:text-slate-400";
+  const field = "flex flex-1 flex-col rounded-xl px-4 py-2.5 text-left transition hover:bg-slate-50 focus-within:bg-slate-50 dark:hover:bg-slate-800 dark:focus-within:bg-slate-800";
+  const label = "text-xs font-medium text-slate-500 dark:text-slate-400";
+  const control = "w-full bg-transparent text-[15px] font-medium text-slate-900 outline-none placeholder:font-normal placeholder:text-slate-400 dark:text-white dark:placeholder:text-slate-500";
+  const divider = <span className="hidden h-10 w-px bg-slate-200 dark:bg-slate-700 md:block" />;
 
   return (
-    <form onSubmit={submit} className="flex flex-col gap-1 rounded-2xl bg-white dark:bg-slate-900 p-2 shadow-2xl shadow-brand-950/30 md:flex-row md:items-center">
-      <label className={field}>
-        <span className={label}>{t("hero.type")}</span>
-        <select className={control} value={type} onChange={(e) => setType(e.target.value as ListingType | "")}>
-          <option value="">{t("type.ALL")}</option>
-          <option value="HOME">{t("type.HOME")}</option>
-          <option value="OFFICE">{t("type.OFFICE")}</option>
-        </select>
-      </label>
-      <span className="hidden h-10 w-px bg-slate-200 dark:bg-slate-800 md:block" />
-      <label className={field}>
-        <span className={label}>{t("hero.where")}</span>
-        <select className={control} value={district} onChange={(e) => setDistrict(e.target.value)}>
-          <option value="">{t("hero.allOf", { city: CITY })}</option>
-          {Object.keys(locationData[CITY]).map((d) => (
-            <option key={d} value={d}>
-              {d}
-            </option>
-          ))}
-        </select>
-      </label>
-      <span className="hidden h-10 w-px bg-slate-200 dark:bg-slate-800 md:block" />
-      <label className={field}>
-        <span className={label}>{t("hero.budget")}</span>
-        <input className={control} type="number" min={0} placeholder={t("hero.budgetPlaceholder")} value={maxPrice} onChange={(e) => setMaxPrice(e.target.value)} />
-      </label>
-      <button className="btn-primary h-14 rounded-xl px-7 text-base md:ml-1">
-        <Search size={19} /> {t("filter.search")}
-      </button>
-    </form>
+    <div>
+      <div className="flex gap-1">
+        {(
+          [
+            ["HOME", HomeIcon, t("type.HOME")],
+            ["OFFICE", Building2, t("type.OFFICE")],
+          ] as const
+        ).map(([value, Icon, text]) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => setType(value)}
+            className={`inline-flex items-center gap-2 rounded-t-xl px-5 py-2.5 text-sm font-semibold transition ${
+              type === value ? "bg-white text-brand-800 dark:bg-slate-900 dark:text-white" : "bg-white/10 text-white hover:bg-white/20"
+            }`}
+          >
+            <Icon size={16} /> {text}
+          </button>
+        ))}
+      </div>
+      <form onSubmit={submit} className="flex flex-col gap-1 rounded-b-2xl rounded-tr-2xl bg-white p-2 shadow-2xl shadow-brand-950/30 dark:bg-slate-900 md:flex-row md:items-center">
+        <label className={field}>
+          <span className={label}>{t("hero.district")}</span>
+          <select className={control} value={district} onChange={(e) => setDistrict(e.target.value)}>
+            <option value="">{t("hero.allOf", { city: CITY })}</option>
+            {Object.keys(locationData[CITY]).map((d) => (
+              <option key={d} value={d}>
+                {d}
+              </option>
+            ))}
+          </select>
+        </label>
+        {divider}
+        <label className={field}>
+          <span className={label}>{t("hero.maxRent")}</span>
+          <input className={control} type="number" min={0} placeholder={t("hero.any")} value={maxPrice} onChange={(e) => setMaxPrice(e.target.value)} />
+        </label>
+        {divider}
+        {type === "HOME" ? (
+          <label className={field}>
+            <span className={label}>{t("filter.rooms")}</span>
+            <select className={control} value={rooms} onChange={(e) => setRooms(e.target.value)}>
+              <option value="">{t("hero.any")}</option>
+              {ROOM_OPTIONS.map((r) => (
+                <option key={r} value={r}>
+                  {t("listing.roomsCount", { n: r })}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : (
+          <label className={field}>
+            <span className={label}>{t("hero.minArea")}</span>
+            <input className={control} type="number" min={0} placeholder={t("hero.any")} value={minArea} onChange={(e) => setMinArea(e.target.value)} />
+          </label>
+        )}
+        <button className="btn-primary h-14 rounded-xl px-8 text-base md:ml-1">
+          <Search size={19} /> {t("filter.search")}
+        </button>
+      </form>
+    </div>
   );
 }
 
-/** Right side of the hero: the newest listing's photo with floating info cards. */
-function HeroVisual({ l }: { l: Listing }) {
-  const t = useT();
+function SectionHeader({ title, link }: { title: string; link?: { to: string; label: string } }) {
   return (
-    <Link to={`/listings/${l.id}`} className="relative block">
-      <div className="relative aspect-[4/5] overflow-hidden rounded-3xl shadow-2xl shadow-brand-950/50 ring-1 ring-white/10">
-        <img src={l.photos[0]} alt={l.title} className="h-full w-full object-cover" />
-        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/80 via-slate-950/30 to-transparent p-5 pt-16">
-          <p className="line-clamp-1 font-semibold text-white">{l.title}</p>
-          <p className="mt-0.5 line-clamp-1 text-sm text-white/75">{locationText(l)}</p>
-        </div>
-      </div>
-      <div className="absolute -left-10 top-10 rounded-2xl bg-white dark:bg-slate-900 px-4 py-3 shadow-xl">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">{t("hero.newest")}</p>
-        <p className="text-xl font-bold text-slate-900 dark:text-white">
-          {formatPrice(l.price, t.lang)}
-          <span className="text-sm font-normal text-slate-500 dark:text-slate-400"> {t("listing.perMonth")}</span>
-        </p>
-      </div>
-      <div className="absolute -right-6 bottom-24 flex items-center gap-3 rounded-2xl bg-white dark:bg-slate-900 px-4 py-3 shadow-xl">
-        <span className="grid h-9 w-9 place-items-center rounded-full bg-emerald-100 text-emerald-700">
-          <CalendarCheck size={18} />
-        </span>
-        <div>
-          <p className="text-sm font-semibold text-slate-900 dark:text-white">{t("hero.viewingCard")}</p>
-          <p className="text-xs text-slate-500 dark:text-slate-400">{t("hero.viewingCardSub")}</p>
-        </div>
-      </div>
-    </Link>
-  );
-}
-
-function SectionHeader({ title, subtitle, link }: { title: string; subtitle?: string; link?: { to: string; label: string } }) {
-  return (
-    <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-3xl">{title}</h2>
-        {subtitle && <p className="mt-2 text-slate-500 dark:text-slate-400">{subtitle}</p>}
-      </div>
+    <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+      <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-2xl">{title}</h2>
       {link && (
-        <Link to={link.to} className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-700 dark:text-brand-300 hover:text-brand-900">
+        <Link to={link.to} className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-700 hover:text-brand-900 dark:text-brand-300 dark:hover:text-brand-200">
           {link.label} <ArrowRight size={16} />
         </Link>
       )}
@@ -125,78 +113,85 @@ function SectionHeader({ title, subtitle, link }: { title: string; subtitle?: st
   );
 }
 
+const count = (qs: string) =>
+  api<ListingPage>(`/listings?limit=1&${qs}`)
+    .then((r) => r.total)
+    .catch(() => 0);
+
 export default function Home() {
   const t = useT();
   const [latest, setLatest] = useState<Listing[] | null>(null);
-  const [total, setTotal] = useState<number | null>(null);
-  const [districtCounts, setDistrictCounts] = useState<Record<string, number>>({});
+  const [counts, setCounts] = useState<{ all?: number; HOME?: number; OFFICE?: number; districts: Record<string, number> }>({ districts: {} });
   const districts = Object.keys(locationData[CITY]);
 
   useEffect(() => {
     api<ListingPage>("/listings?limit=6")
-      .then((d) => {
-        setLatest(d.items);
-        setTotal(d.total);
-      })
+      .then((d) => setLatest(d.items))
       .catch(() => setLatest([]));
-    Promise.all(
-      districts.map((d) =>
-        api<ListingPage>(`/listings?limit=1&city=${encodeURIComponent(CITY)}&district=${encodeURIComponent(d)}`)
-          .then((r) => [d, r.total] as const)
-          .catch(() => [d, 0] as const),
-      ),
-    ).then((pairs) => setDistrictCounts(Object.fromEntries(pairs)));
+    const city = `city=${encodeURIComponent(CITY)}`;
+    Promise.all([
+      count(""),
+      count("type=HOME"),
+      count("type=OFFICE"),
+      ...districts.map((d) => count(`${city}&district=${encodeURIComponent(d)}`)),
+    ]).then(([all, home, office, ...perDistrict]) =>
+      setCounts({ all, HOME: home, OFFICE: office, districts: Object.fromEntries(districts.map((d, i) => [d, perDistrict[i]])) }),
+    );
   }, []);
+
+  const categories = [
+    { type: "HOME" as const, icon: HomeIcon, title: t("cat.HOME.title"), text: t("cat.HOME.text") },
+    { type: "OFFICE" as const, icon: Store, title: t("cat.OFFICE.title"), text: t("cat.OFFICE.text") },
+  ];
 
   const steps = [
     { icon: Search, title: t("how.1.title"), text: t("how.1.text") },
     { icon: CalendarCheck, title: t("how.2.title"), text: t("how.2.text") },
-    { icon: KeyRound, title: t("how.3.title"), text: t("how.3.text") },
+    { icon: MessageCircle, title: t("how.3.title"), text: t("how.3.text") },
   ];
 
   return (
     <>
       <section className="relative overflow-hidden bg-brand-900">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(90,128,196,0.45),transparent_55%),radial-gradient(ellipse_at_bottom_left,rgba(13,24,48,0.9),transparent_60%)]" />
-        <Skyline />
-        <div className="page relative grid items-center gap-12 py-16 sm:py-24 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,0.65fr)]">
-          <div>
-          <div className="max-w-3xl">
-            <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-brand-100 ring-1 ring-inset ring-white/15">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-              {total !== null ? t("hero.badge", { n: total, city: CITY }) : t("hero.badgeLoading", { city: CITY })}
-            </span>
-            <h1 className="mt-5 text-4xl font-bold tracking-tight text-white sm:text-5xl lg:text-6xl">{t("hero.title")}</h1>
-            <p className="mt-5 max-w-xl text-lg leading-relaxed text-brand-100">{t("hero.subtitle")}</p>
-          </div>
-          <div className="mt-10">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(90,128,196,0.35),transparent_55%)]" />
+        <div className="page relative py-14 sm:py-20">
+          <h1 className="max-w-3xl text-3xl font-bold tracking-tight text-white sm:text-4xl lg:text-5xl">{t("hero.title", { city: CITY })}</h1>
+          <p className="mt-3 text-base text-brand-200 sm:text-lg">
+            {counts.all !== undefined ? t("hero.stats", { n: counts.all, d: districts.length }) : " "}
+          </p>
+          <div className="mt-8 max-w-4xl">
             <HeroSearch />
           </div>
-          <div className="mt-8 flex flex-wrap gap-x-8 gap-y-3 text-sm text-brand-100">
-            {[
-              [ShieldCheck, t("hero.point1")],
-              [CalendarCheck, t("hero.point2")],
-              [MessageCircle, t("hero.point3")],
-            ].map(([Icon, text]) => {
-              const I = Icon as typeof ShieldCheck;
-              return (
-                <span key={text as string} className="inline-flex items-center gap-2">
-                  <I size={17} className="text-brand-300" /> {text as string}
-                </span>
-              );
-            })}
-          </div>
-          </div>
-          {latest?.[0]?.photos[0] && (
-            <div className="hidden px-8 lg:block">
-              <HeroVisual l={latest[0]} />
-            </div>
-          )}
         </div>
       </section>
 
-      <section className="page py-16 sm:py-20">
-        <SectionHeader title={t("home.latest")} subtitle={t("home.latestSub")} link={{ to: "/search", label: t("home.viewAll") }} />
+      <section className="page -mt-px py-12">
+        <div className="grid gap-4 sm:grid-cols-2">
+          {categories.map(({ type, icon: Icon, title, text }) => (
+            <Link
+              key={type}
+              to={`/search?type=${type}`}
+              className="card group flex items-center gap-5 p-6 transition hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-lg dark:hover:border-brand-700"
+            >
+              <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-brand-50 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300">
+                <Icon size={26} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-lg font-semibold text-slate-900 dark:text-white">{title}</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400">{text}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-2xl font-bold text-slate-900 dark:text-white">{counts[type] ?? "–"}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{t("cat.listings")}</p>
+              </div>
+              <ArrowRight size={18} className="text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-brand-600 dark:text-slate-600" />
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      <section className="page pb-16">
+        <SectionHeader title={t("home.latest")} link={{ to: "/search", label: t("home.viewAll") }} />
         {latest === null ? (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 3 }, (_, i) => (
@@ -219,25 +214,19 @@ export default function Home() {
         )}
       </section>
 
-      <section className="border-y border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-        <div className="page py-16 sm:py-20">
-          <SectionHeader title={t("home.districts", { city: CITY })} subtitle={t("home.districtsSub")} />
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
-            {districts.map((d, i) => (
+      <section className="border-y border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+        <div className="page py-14">
+          <SectionHeader title={t("home.districts")} />
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+            {districts.map((d) => (
               <Link
                 key={d}
                 to={`/search?city=${encodeURIComponent(CITY)}&district=${encodeURIComponent(d)}`}
-                className="group relative overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 p-5 transition hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-card"
+                className="rounded-xl border border-slate-200 px-4 py-3.5 transition hover:border-brand-300 hover:bg-brand-50/50 dark:border-slate-800 dark:hover:border-brand-700 dark:hover:bg-brand-900/20"
               >
-                <div
-                  className={`absolute -right-6 -top-6 h-24 w-24 rounded-full opacity-60 transition dark:opacity-10 group-hover:scale-125 ${
-                    ["bg-brand-100 dark:bg-brand-900/60", "bg-sky-100", "bg-indigo-100", "bg-slate-100 dark:bg-slate-800", "bg-blue-100", "bg-cyan-100"][i % 6]
-                  }`}
-                />
-                <Building2 size={22} className="relative text-brand-700 dark:text-brand-300" />
-                <p className="relative mt-6 text-lg font-semibold text-slate-900 dark:text-white">{d}</p>
-                <p className="relative text-sm text-slate-500 dark:text-slate-400">
-                  {districtCounts[d] === undefined ? "…" : t("home.listingCount", { n: districtCounts[d] })}
+                <p className="font-semibold text-slate-900 dark:text-white">{d}</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  {counts.districts[d] === undefined ? "…" : t("home.listingCount", { n: counts.districts[d] })}
                 </p>
               </Link>
             ))}
@@ -245,37 +234,32 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="page py-16 sm:py-20">
-        <SectionHeader title={t("how.title")} subtitle={t("how.subtitle")} />
-        <div className="grid gap-6 md:grid-cols-3">
-          {steps.map(({ icon: Icon, title, text }, i) => (
-            <div key={title} className="card relative p-6">
-              <span className="absolute right-5 top-4 text-5xl font-bold text-slate-100">{i + 1}</span>
-              <span className="relative grid h-12 w-12 place-items-center rounded-xl bg-brand-700 text-white">
-                <Icon size={22} />
+      <section className="page py-16">
+        <SectionHeader title={t("how.title")} />
+        <div className="grid gap-8 md:grid-cols-3">
+          {steps.map(({ icon: Icon, title, text }) => (
+            <div key={title} className="flex gap-4">
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300">
+                <Icon size={20} />
               </span>
-              <h3 className="relative mt-5 text-lg font-semibold text-slate-900 dark:text-white">{title}</h3>
-              <p className="relative mt-2 leading-relaxed text-slate-500 dark:text-slate-400">{text}</p>
+              <div>
+                <h3 className="font-semibold text-slate-900 dark:text-white">{title}</h3>
+                <p className="mt-1 text-sm leading-relaxed text-slate-500 dark:text-slate-400">{text}</p>
+              </div>
             </div>
           ))}
         </div>
       </section>
 
       <section className="page pb-20">
-        <div className="relative overflow-hidden rounded-3xl bg-brand-800 px-6 py-12 sm:px-12">
-          <div className="pointer-events-none absolute -right-20 -top-20 h-72 w-72 rounded-full bg-brand-600/40 blur-2xl" />
-          <div className="relative flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
-            <div className="max-w-xl">
-              <span className="mb-3 grid h-11 w-11 place-items-center rounded-xl bg-white/10 text-white">
-                <HomeIcon size={22} />
-              </span>
-              <h2 className="text-2xl font-bold text-white sm:text-3xl">{t("cta.title")}</h2>
-              <p className="mt-2 text-brand-100">{t("cta.text")}</p>
-            </div>
-            <Link to="/listings/new" className="btn h-12 shrink-0 bg-white dark:bg-slate-900 px-6 text-base text-brand-800 dark:text-brand-200 hover:bg-brand-50 dark:hover:bg-brand-900/40">
-              {t("cta.button")} <ArrowRight size={18} />
-            </Link>
+        <div className="flex flex-col items-start justify-between gap-6 rounded-2xl bg-brand-800 px-6 py-10 sm:px-10 md:flex-row md:items-center">
+          <div className="max-w-xl">
+            <h2 className="text-xl font-bold text-white sm:text-2xl">{t("cta.title")}</h2>
+            <p className="mt-2 text-brand-100">{t("cta.text")}</p>
           </div>
+          <Link to="/listings/new" className="btn h-12 shrink-0 bg-white px-6 text-base text-brand-800 hover:bg-brand-50">
+            {t("cta.button")} <ArrowRight size={18} />
+          </Link>
         </div>
       </section>
     </>
