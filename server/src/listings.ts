@@ -27,21 +27,101 @@ const num = (v: unknown) => (v !== undefined && v !== "" && !isNaN(Number(v)) ? 
 listingsRouter.get("/", async (req, res) => {
   const q = req.query;
   const where: Prisma.ListingWhereInput = {};
-  const [minPrice, maxPrice, minArea, maxArea, rooms] =
-    [q.minPrice, q.maxPrice, q.minArea, q.maxArea, q.rooms].map(num);
+  const [minPrice, maxPrice, minArea, maxArea, minRooms] =
+    [q.minPrice, q.maxPrice, q.minArea, q.maxArea, q.minRooms].map(num);
 
   if (minPrice !== undefined || maxPrice !== undefined) where.price = { gte: minPrice, lte: maxPrice };
   if (minArea !== undefined || maxArea !== undefined) where.area = { gte: minArea, lte: maxArea };
-  if (rooms !== undefined) where.rooms = rooms;
+
+  // Multi-district support (comma-separated, array, or single string)
+  const rawDistricts = q.districts ?? q.district;
+  if (rawDistricts) {
+    const districtList = (Array.isArray(rawDistricts) ? rawDistricts : String(rawDistricts).split(","))
+      .map((d) => String(d).trim())
+      .filter(Boolean);
+    if (districtList.length === 1) {
+      where.district = districtList[0];
+    } else if (districtList.length > 1) {
+      where.district = { in: districtList };
+    }
+  }
+
   if (q.city) where.city = String(q.city);
-  if (q.district) where.district = String(q.district);
   if (q.neighborhood) where.neighborhood = String(q.neighborhood);
   if (q.type === "HOME" || q.type === "OFFICE") where.type = q.type;
+
+  // Rooms filtering:
+  // 1) Multi-select room presets (e.g. 1+1, 2+1, 5+ -> rooms=1,2,5+)
+  // 2) Minimum room count (e.g. minRooms=3 -> rooms >= 3)
+  const roomConditions: Prisma.ListingWhereInput[] = [];
+
+  const rawRooms = q.rooms;
+  if (rawRooms !== undefined && rawRooms !== "") {
+    const parts = (Array.isArray(rawRooms) ? rawRooms : String(rawRooms).split(","))
+      .map((r) => String(r).trim())
+      .filter(Boolean);
+
+    const exactRooms: number[] = [];
+    let includeFivePlus = false;
+
+    for (const part of parts) {
+      if (part === "5+" || part === "5_plus" || part === "5plus") {
+        includeFivePlus = true;
+      } else {
+        const n = Number(part);
+        if (!isNaN(n)) exactRooms.push(n);
+      }
+    }
+
+    const presetConditions: Prisma.ListingWhereInput[] = [];
+    if (exactRooms.length > 0) {
+      presetConditions.push({ rooms: { in: exactRooms } });
+    }
+    if (includeFivePlus) {
+      presetConditions.push({ rooms: { gte: 5 } });
+    }
+
+    if (presetConditions.length === 1) {
+      roomConditions.push(presetConditions[0]);
+    } else if (presetConditions.length > 1) {
+      roomConditions.push({ OR: presetConditions });
+    }
+  }
+
+  if (minRooms !== undefined) {
+    roomConditions.push({ rooms: { gte: minRooms } });
+  }
+
+  if (roomConditions.length === 1) {
+    Object.assign(where, roomConditions[0]);
+  } else if (roomConditions.length > 1) {
+    where.AND = [
+      ...(Array.isArray(where.AND) ? where.AND : (where.AND ? [where.AND] : [])),
+      ...roomConditions,
+    ];
+  }
+
+  // Sorting options:
+  // newest: createdAt desc (default)
+  // oldest: createdAt asc
+  // price_asc: price asc
+  // price_desc: price desc
+  let orderBy: Prisma.ListingOrderByWithRelationInput = { createdAt: "desc" };
+  const sort = String(q.sort ?? "").toLowerCase();
+  if (sort === "price_asc" || sort === "price_low") {
+    orderBy = { price: "asc" };
+  } else if (sort === "price_desc" || sort === "price_high") {
+    orderBy = { price: "desc" };
+  } else if (sort === "oldest" || sort === "date_asc") {
+    orderBy = { createdAt: "asc" };
+  } else {
+    orderBy = { createdAt: "desc" };
+  }
 
   const page = Math.max(1, num(q.page) ?? 1);
   const limit = Math.min(50, num(q.limit) ?? 20);
   const [items, total] = await Promise.all([
-    prisma.listing.findMany({ where, orderBy: { createdAt: "desc" }, skip: (page - 1) * limit, take: limit }),
+    prisma.listing.findMany({ where, orderBy, skip: (page - 1) * limit, take: limit }),
     prisma.listing.count({ where }),
   ]);
   res.json({ items, total, page, pages: Math.ceil(total / limit) });

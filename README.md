@@ -29,7 +29,8 @@ npm install && npm run dev          # http://localhost:5173
 Enable "Maps JavaScript API" in Google Cloud Console for your key.
 
 ## Requirements coverage
-- Filtering by price range, m², rooms, city, type → `server/src/listings.ts` (Prisma, indexed, paginated)
+- Advanced filtering: multi-district selection, multi-select room presets (1+0, 1+1, 2+1, 3+1, 4+1, 5+), minimum room count ("en az 3 oda"), price range, area (m²), property type (Home/Commercial), and location → `server/src/listings.ts` (Prisma, indexed, paginated) & `client/src/pages/Search.tsx`
+- Sorting options: by date (newest/oldest) and by price (low to high / high to low) → `server/src/listings.ts` & `client/src/pages/Search.tsx`
 - Property location on map → `client/src/components/MapView.tsx`
 - Appointment request management → `server/src/appointments.ts` + `client/src/pages/Dashboard.tsx`
 - Unified user account: any user can both list properties for rent and request viewing appointments to rent properties (JWT authentication)
