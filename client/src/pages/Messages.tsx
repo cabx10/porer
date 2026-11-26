@@ -1,157 +1,117 @@
-import { useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import { ArrowLeft, Home, MessageCircle } from "lucide-react";
 import { api } from "../api";
-import { User, Message } from "../types";
-import { io, Socket } from "socket.io-client";
+import { useSocket } from "../socket";
+import { useT, formatRelative } from "../i18n";
+import { Conversation } from "../types";
+import ChatBox from "../components/ChatBox";
+import { EmptyState, PageLoader } from "../components/ui";
 
-interface Conv {
-  listingId: number;
-  listingTitle: string;
-  listingPhoto?: string;
-  otherUser: { id: number; name: string };
-  lastMessage: string;
-  date: string;
-}
+export default function Messages() {
+  const t = useT();
+  const socket = useSocket();
+  const [params, setParams] = useSearchParams();
+  const [convs, setConvs] = useState<Conversation[] | null>(null);
 
-export default function Messages({ user }: { user: User | null }) {
-  const [convs, setConvs] = useState<Conv[]>([]);
-  const [active, setActive] = useState<Conv | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [chatMsg, setChatMsg] = useState("");
-  const socketRef = useRef<Socket | null>(null);
+  const load = useCallback(() => {
+    api<Conversation[]>("/messages/conversations/list")
+      .then(setConvs)
+      .catch(() => setConvs([]));
+  }, []);
 
-  const loadConvs = () => {
-    api<Conv[]>("/messages/conversations/list").then(setConvs).catch(console.error);
-  };
-
+  useEffect(load, [load]);
   useEffect(() => {
-    if (user) {
-      loadConvs();
-      socketRef.current = io("http://localhost:4000");
-      socketRef.current.emit("join", user.id.toString());
-      
-      socketRef.current.on("new_message", (m: Message) => {
-        // Update messages if we are in this conversation
-        setMessages(prev => {
-          // If we have an active chat for this listing and this user
-          if (active && m.listingId === active.listingId && 
-             (m.senderId === active.otherUser.id || m.receiverId === active.otherUser.id)) {
-            return [...prev, m];
-          }
-          return prev;
-        });
-        loadConvs();
-      });
-    }
+    if (!socket) return;
+    socket.on("new_message", load);
     return () => {
-      if (socketRef.current) socketRef.current.disconnect();
+      socket.off("new_message", load);
     };
-  }, [user, active]); // Re-bind socket listener if active changes
+  }, [socket, load]);
 
-  const selectConv = (c: Conv) => {
-    setActive(c);
-    api<Message[]>(`/messages/${c.listingId}/${c.otherUser.id}`).then(setMessages);
-  };
+  // The open conversation is kept in the URL (?l=listingId&u=userId).
+  const listingId = params.get("l");
+  const userId = params.get("u");
+  const active = convs?.find((c) => String(c.listingId) === listingId && String(c.otherUser.id) === userId);
 
-  const sendMessage = async () => {
-    if (!chatMsg.trim() || !active || !user) return;
-    try {
-      const m = await api<Message>("/messages", { 
-        method: "POST", 
-        body: { receiverId: active.otherUser.id, content: chatMsg, listingId: active.listingId } 
-      });
-      setMessages(prev => [...prev, m]);
-      setChatMsg("");
-      loadConvs();
-    } catch (e) { alert((e as Error).message); }
-  };
-
-  if (!user) return <div>Please log in to view messages.</div>;
+  if (convs === null) return <PageLoader />;
 
   return (
-    <div style={{ display: "flex", height: "calc(100vh - 100px)", border: "1px solid #ccc", borderRadius: 8, overflow: "hidden" }}>
-      {/* Sidebar - Conversations */}
-      <div style={{ width: 350, borderRight: "1px solid #ccc", background: "#f9f9f9", overflowY: "auto" }}>
-        <h3 style={{ padding: 16, margin: 0, borderBottom: "1px solid #ddd", background: "white" }}>Messages</h3>
-        {convs.map(c => (
-          <div 
-            key={`${c.listingId}_${c.otherUser.id}`}
-            onClick={() => selectConv(c)}
-            style={{ 
-              padding: 12, borderBottom: "1px solid #eee", cursor: "pointer",
-              background: active?.listingId === c.listingId && active?.otherUser.id === c.otherUser.id ? "#e6f2ff" : "transparent"
-            }}
-          >
-            <div style={{ display: "flex", gap: 10 }}>
-              <div style={{ width: 40, height: 40, background: "#ddd", borderRadius: 4, overflow: "hidden" }}>
-                {c.listingPhoto && <img src={`http://localhost:4000${c.listingPhoto}`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />}
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: "bold", fontSize: 14 }}>{c.otherUser.name}</div>
-                <div style={{ fontSize: 12, color: "#666", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                  🏠 {c.listingTitle}
-                </div>
-                <div style={{ fontSize: 13, color: "#333", marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                  {c.lastMessage}
-                </div>
-              </div>
-            </div>
-          </div>
-        ))}
-        {convs.length === 0 && <div style={{ padding: 16, color: "#666" }}>No conversations yet.</div>}
-      </div>
-
-      {/* Main Chat Area */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", background: "white" }}>
-        {active ? (
-          <>
-            <div style={{ padding: 16, borderBottom: "1px solid #ddd", background: "#f5f5f5" }}>
-              <h3 style={{ margin: 0 }}>{active.otherUser.name}</h3>
-              <div style={{ color: "#666", fontSize: 14 }}>About: <b>{active.listingTitle}</b></div>
-            </div>
-            
-            <div style={{ flex: 1, overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
-              {messages.map(m => {
-                const isMine = m.senderId === user.id;
-                return (
-                  <div key={m.id} style={{ alignSelf: isMine ? "flex-end" : "flex-start", maxWidth: "70%" }}>
-                    <div style={{ 
-                      padding: "8px 12px", 
-                      borderRadius: 16, 
-                      background: isMine ? "#0066cc" : "#e9ecef",
-                      color: isMine ? "white" : "black"
-                    }}>
-                      {m.content}
-                    </div>
-                    <div style={{ fontSize: 11, color: "#999", marginTop: 4, textAlign: isMine ? "right" : "left" }}>
-                      {new Date(m.createdAt).toLocaleTimeString()}
-                    </div>
+    <div className="page py-6">
+      <h1 className="mb-5 text-2xl font-bold tracking-tight text-slate-900 dark:text-white">{t("nav.messages")}</h1>
+      {convs.length === 0 ? (
+        <EmptyState
+          icon={<MessageCircle size={22} />}
+          title={t("messages.empty")}
+          text={t("messages.emptyText")}
+          action={
+            <Link to="/search" className="btn-primary">
+              {t("nav.search")}
+            </Link>
+          }
+        />
+      ) : (
+        <div className="card grid h-[calc(100vh-12rem)] min-h-[480px] overflow-hidden md:grid-cols-[320px_minmax(0,1fr)]">
+          <aside className={`min-h-0 overflow-y-auto border-r border-slate-200 dark:border-slate-800 ${active ? "hidden md:block" : ""}`}>
+            {convs.map((c) => {
+              const selected = c === active;
+              return (
+                <button
+                  key={`${c.listingId}_${c.otherUser.id}`}
+                  onClick={() => setParams({ l: String(c.listingId), u: String(c.otherUser.id) })}
+                  className={`flex w-full gap-3 border-b border-slate-100 dark:border-slate-800 p-3.5 text-left transition ${selected ? "bg-brand-50 dark:bg-brand-900/40" : "hover:bg-slate-50 dark:hover:bg-slate-800"}`}
+                >
+                  <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800">
+                    {c.listingPhoto ? (
+                      <img src={c.listingPhoto} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="grid h-full place-items-center text-slate-400">
+                        <Home size={18} />
+                      </div>
+                    )}
                   </div>
-                );
-              })}
-            </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="truncate font-semibold text-slate-900 dark:text-white">{c.otherUser.name}</span>
+                      <span className="shrink-0 text-[11px] text-slate-400">{formatRelative(c.date, t.lang)}</span>
+                    </div>
+                    <p className="truncate text-xs font-medium text-brand-700 dark:text-brand-300">{c.listingId ? c.listingTitle : t("messages.general")}</p>
+                    <p className="truncate text-sm text-slate-500 dark:text-slate-400">{c.lastMessage}</p>
+                  </div>
+                </button>
+              );
+            })}
+          </aside>
 
-            <div style={{ padding: 16, borderTop: "1px solid #ddd", display: "flex", gap: 8 }}>
-              <input 
-                value={chatMsg} 
-                onChange={e => setChatMsg(e.target.value)} 
-                onKeyPress={e => e.key === "Enter" && sendMessage()}
-                placeholder="Type your message..." 
-                style={{ flex: 1, padding: "10px", borderRadius: 20, border: "1px solid #ccc" }} 
-              />
-              <button 
-                onClick={sendMessage}
-                style={{ padding: "0 20px", borderRadius: 20, background: "#0066cc", color: "white", border: "none", cursor: "pointer", fontWeight: "bold" }}
-              >
-                Send
-              </button>
+          {active ? (
+            <section className="flex min-h-0 flex-col">
+              <header className="flex items-center gap-3 border-b border-slate-200 dark:border-slate-800 px-4 py-3">
+                <button onClick={() => setParams({})} className="rounded-lg p-1.5 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 md:hidden" aria-label={t("common.back")}>
+                  <ArrowLeft size={18} />
+                </button>
+                <div className="min-w-0">
+                  <p className="truncate font-semibold text-slate-900 dark:text-white">{active.otherUser.name}</p>
+                  {active.listingId ? (
+                    <Link to={`/listings/${active.listingId}`} className="truncate text-xs text-brand-700 dark:text-brand-300 hover:underline">
+                      {active.listingTitle}
+                    </Link>
+                  ) : (
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{t("messages.general")}</p>
+                  )}
+                </div>
+              </header>
+              <ChatBox key={`${active.listingId}_${active.otherUser.id}`} listingId={active.listingId} otherUserId={active.otherUser.id} onSent={load} className="flex-1" />
+            </section>
+          ) : (
+            <div className="hidden place-items-center text-center text-slate-500 dark:text-slate-400 md:grid">
+              <div>
+                <MessageCircle size={36} className="mx-auto mb-3 text-slate-300" />
+                <p className="text-sm">{t("messages.select")}</p>
+              </div>
             </div>
-          </>
-        ) : (
-          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#999" }}>
-            Select a conversation to start messaging
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

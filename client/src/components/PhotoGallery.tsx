@@ -1,118 +1,143 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { ChevronLeft, ChevronRight, Grid3x3, ImageOff, X } from "lucide-react";
+import { useT } from "../i18n";
 
-export default function PhotoGallery({ photos }: { photos: string[] }) {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [page, setPage] = useState(0);
-  const [fullscreen, setFullscreen] = useState(false);
-  const [zoom, setZoom] = useState(1);
+/** Full-screen photo viewer with keyboard navigation and a thumbnail strip. */
+export function Lightbox({ photos, start, title, onClose }: { photos: string[]; start: number; title: string; onClose: () => void }) {
+  const [index, setIndex] = useState(start);
+  const count = photos.length;
+  const prev = useCallback(() => setIndex((i) => (i - 1 + count) % count), [count]);
+  const next = useCallback(() => setIndex((i) => (i + 1) % count), [count]);
 
-  if (!photos || photos.length === 0) {
-    return <div style={{ height: 300, width: "100%", background: "#eee", display: "flex", alignItems: "center", justifyContent: "center" }}>No photos</div>;
-  }
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      if (e.key === "ArrowLeft") prev();
+      if (e.key === "ArrowRight") next();
+    };
+    document.addEventListener("keydown", onKey);
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = "";
+    };
+  }, [onClose, prev, next]);
 
-  const handlePrev = (e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    setCurrentIndex((prev) => (prev > 0 ? prev - 1 : photos.length - 1));
-  };
-
-  const handleNext = (e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    setCurrentIndex((prev) => (prev < photos.length - 1 ? prev + 1 : 0));
-  };
-
-  const handleZoomIn = () => setZoom((z) => Math.min(z + 0.5, 4));
-  const handleZoomOut = () => setZoom((z) => Math.max(z - 0.5, 1));
-  
-  const PER_PAGE = 10;
-  const totalPages = Math.ceil(photos.length / PER_PAGE);
-  const currentThumbs = photos.slice(page * PER_PAGE, (page + 1) * PER_PAGE);
-
+  const arrow = "absolute top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full bg-white/10 text-white transition hover:bg-white/20";
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
-      {/* Large Image Container */}
-      <div style={{ position: "relative", height: 400, width: "100%", background: "#f0f0f0", borderRadius: 8, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <img 
-          src={"http://localhost:4000" + photos[currentIndex]} 
-          alt="Large view" 
-          style={{ width: "100%", height: "100%", objectFit: "contain" }} 
-        />
-        
-        {/* Navigation Arrows */}
-        {photos.length > 1 && (
-          <>
-            <button onClick={handlePrev} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", background: "rgba(0,0,0,0.5)", color: "white", border: "none", borderRadius: "50%", width: 40, height: 40, fontSize: 20, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>&lt;</button>
-            <button onClick={handleNext} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "rgba(0,0,0,0.5)", color: "white", border: "none", borderRadius: "50%", width: 40, height: 40, fontSize: 20, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>&gt;</button>
-          </>
-        )}
-        
-        {/* Fullscreen Button */}
-        <button onClick={() => setFullscreen(true)} style={{ position: "absolute", top: 10, right: 10, background: "rgba(0,0,0,0.5)", color: "white", border: "none", borderRadius: 4, padding: "4px 8px", cursor: "pointer" }}>
-          [ ] Fullscreen
+    <div className="fixed inset-0 z-50 flex flex-col bg-slate-950">
+      <div className="flex items-center justify-between px-4 py-3 text-white">
+        <span className="text-sm text-white/70">
+          {index + 1} / {count}
+        </span>
+        <span className="hidden max-w-md truncate text-sm font-medium sm:block">{title}</span>
+        <button onClick={onClose} className="rounded-full p-2 hover:bg-white/10" aria-label="close">
+          <X size={22} />
         </button>
       </div>
-
-      {/* Thumbnails Grid */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gridTemplateRows: "repeat(2, 1fr)", gap: 8 }}>
-        {currentThumbs.map((p, idx) => {
-          const actualIndex = page * PER_PAGE + idx;
-          return (
-            <div 
-              key={actualIndex} 
-              onClick={() => setCurrentIndex(actualIndex)}
-              style={{
-                cursor: "pointer", 
-                height: 80,
-                border: currentIndex === actualIndex ? "3px solid #0066cc" : "none",
-                borderRadius: 4,
-                overflow: "hidden",
-                opacity: currentIndex === actualIndex ? 1 : 0.7
-              }}
-            >
-              <img src={"http://localhost:4000" + p} style={{ width: "100%", height: "100%", objectFit: "cover" }} alt={"Thumb " + actualIndex} />
-            </div>
-          );
-        })}
+      <div className="relative flex min-h-0 flex-1 items-center justify-center px-4">
+        <img src={photos[index]} alt={title} className="max-h-full max-w-full rounded-lg object-contain" />
+        {count > 1 && (
+          <>
+            <button onClick={prev} className={`${arrow} left-4`} aria-label="previous">
+              <ChevronLeft size={24} />
+            </button>
+            <button onClick={next} className={`${arrow} right-4`} aria-label="next">
+              <ChevronRight size={24} />
+            </button>
+          </>
+        )}
       </div>
-
-      {/* Thumbnails Pagination */}
-      {totalPages > 1 && (
-        <div style={{ display: "flex", justifyContent: "center", gap: 10, marginTop: 4 }}>
-          <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}>Prev 10</button>
-          <span>Page {page + 1} of {totalPages}</span>
-          <button onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page === totalPages - 1}>Next 10</button>
-        </div>
-      )}
-
-      {/* Fullscreen Modal */}
-      {fullscreen && (
-        <div style={{
-          position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", 
-          background: "rgba(0,0,0,0.95)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center"
-        }}>
-          {/* Top Bar for Controls */}
-          <div style={{ position: "absolute", top: 20, right: 20, display: "flex", gap: 16, zIndex: 10000 }}>
-            <button onClick={handleZoomOut} style={{ background: "#333", color: "white", border: "1px solid #666", padding: "8px 16px", borderRadius: 4, cursor: "pointer", fontSize: 18 }}>-</button>
-            <button onClick={() => setZoom(1)} style={{ background: "#333", color: "white", border: "1px solid #666", padding: "8px 16px", borderRadius: 4, cursor: "pointer", fontSize: 16 }}>Reset Zoom</button>
-            <button onClick={handleZoomIn} style={{ background: "#333", color: "white", border: "1px solid #666", padding: "8px 16px", borderRadius: 4, cursor: "pointer", fontSize: 18 }}>+</button>
-            <button onClick={() => { setFullscreen(false); setZoom(1); }} style={{ background: "#c00", color: "white", border: "none", padding: "8px 16px", borderRadius: 4, cursor: "pointer", fontSize: 16, marginLeft: 20 }}>Close X</button>
-          </div>
-
-          <button onClick={handlePrev} style={{ position: "absolute", left: 20, background: "rgba(255,255,255,0.2)", color: "white", border: "none", borderRadius: "50%", width: 60, height: 60, fontSize: 30, cursor: "pointer", zIndex: 10000 }}>&lt;</button>
-          <button onClick={handleNext} style={{ position: "absolute", right: 20, background: "rgba(255,255,255,0.2)", color: "white", border: "none", borderRadius: "50%", width: 60, height: 60, fontSize: 30, cursor: "pointer", zIndex: 10000 }}>&gt;</button>
-
-          <div style={{ width: "80%", height: "80%", overflow: zoom > 1 ? "auto" : "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <img 
-              src={"http://localhost:4000" + photos[currentIndex]} 
-              style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", transform: "scale(" + zoom + ")", transition: "transform 0.2s ease-in-out", transformOrigin: "center center", cursor: zoom > 1 ? "grab" : "default" }} 
-              alt="Fullscreen view" 
-            />
-          </div>
-          
-          <div style={{ position: "absolute", bottom: 20, color: "white", fontSize: 18 }}>
-             {currentIndex + 1} / {photos.length}
-          </div>
+      {count > 1 && (
+        <div className="flex justify-center gap-2 overflow-x-auto px-4 py-4">
+          {photos.map((p, i) => (
+            <button
+              key={p}
+              onClick={() => setIndex(i)}
+              className={`h-14 w-20 shrink-0 overflow-hidden rounded-md ring-2 transition ${i === index ? "ring-white" : "opacity-50 ring-transparent hover:opacity-90"}`}
+            >
+              <img src={p} alt="" className="h-full w-full object-cover" />
+            </button>
+          ))}
         </div>
       )}
     </div>
+  );
+}
+
+/** Airbnb-style mosaic on wide screens, swipeable single photo on phones. */
+export default function PhotoGallery({ photos, title }: { photos: string[]; title: string }) {
+  const t = useT();
+  const [open, setOpen] = useState<number | null>(null);
+  const [mobileIndex, setMobileIndex] = useState(0);
+  const count = photos.length;
+
+  if (count === 0)
+    return (
+      <div className="grid aspect-[16/9] place-items-center rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400 md:aspect-[21/9]">
+        <div className="flex flex-col items-center gap-2 text-sm">
+          <ImageOff size={32} />
+          {t("gallery.noPhotos")}
+        </div>
+      </div>
+    );
+
+  const tile = (i: number, className = "") => (
+    <button key={photos[i]} onClick={() => setOpen(i)} className={`group relative overflow-hidden bg-slate-100 dark:bg-slate-800 ${className}`}>
+      <img src={photos[i]} alt={i === 0 ? title : ""} className="h-full w-full object-cover transition duration-300 group-hover:scale-105 group-hover:brightness-90" />
+    </button>
+  );
+
+  const small = photos.slice(1, 5).map((_, k) => k + 1);
+
+  return (
+    <>
+      {/* Phones: one photo with arrows */}
+      <div className="relative aspect-[4/3] overflow-hidden rounded-2xl bg-slate-100 dark:bg-slate-800 md:hidden">
+        <img src={photos[mobileIndex]} alt={title} className="h-full w-full object-cover" onClick={() => setOpen(mobileIndex)} />
+        {count > 1 && (
+          <>
+            <button
+              onClick={() => setMobileIndex((i) => (i - 1 + count) % count)}
+              className="absolute left-2 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full bg-white/90 dark:bg-slate-900/90 shadow"
+              aria-label="previous"
+            >
+              <ChevronLeft size={18} />
+            </button>
+            <button
+              onClick={() => setMobileIndex((i) => (i + 1) % count)}
+              className="absolute right-2 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full bg-white/90 dark:bg-slate-900/90 shadow"
+              aria-label="next"
+            >
+              <ChevronRight size={18} />
+            </button>
+            <span className="absolute bottom-3 right-3 rounded-full bg-slate-900/70 px-2.5 py-1 text-xs font-medium text-white">
+              {mobileIndex + 1} / {count}
+            </span>
+          </>
+        )}
+      </div>
+
+      {/* Tablets and up: mosaic */}
+      <div className="relative hidden md:block">
+        {count === 1 ? (
+          <div className="grid h-[440px] overflow-hidden rounded-2xl">{tile(0)}</div>
+        ) : (
+          // 2 photos: side by side. 3: big + 2 stacked. 4: big + 1 tall + 2 stacked. 5+: big + 2x2.
+          <div className={`grid h-[440px] gap-2 overflow-hidden rounded-2xl ${count === 2 ? "grid-cols-2" : count === 3 ? "grid-cols-3 grid-rows-2" : "grid-cols-4 grid-rows-2"}`}>
+            {tile(0, count === 2 ? "" : "col-span-2 row-span-2")}
+            {small.map((i) => tile(i, count === 4 && i === 1 ? "row-span-2" : ""))}
+          </div>
+        )}
+        <button
+          onClick={() => setOpen(0)}
+          className="absolute bottom-4 right-4 inline-flex items-center gap-2 rounded-lg border border-slate-900/10 bg-white dark:bg-slate-900 px-3.5 py-2 text-sm font-semibold text-slate-900 dark:text-white shadow-md transition hover:bg-slate-50 dark:hover:bg-slate-800"
+        >
+          <Grid3x3 size={16} /> {t("gallery.showAll", { n: count })}
+        </button>
+      </div>
+
+      {open !== null && <Lightbox photos={photos} start={open} title={title} onClose={() => setOpen(null)} />}
+    </>
   );
 }

@@ -1,141 +1,231 @@
-import { useEffect, useState, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { api } from "../api";
+import { FormEvent, useEffect, useState } from "react";
+import { Link, useLocation, useParams } from "react-router-dom";
+import { ArrowLeft, CalendarCheck, ExternalLink, MapPin, MessageCircle, Pencil, Phone, SearchX } from "lucide-react";
+import toast from "react-hot-toast";
+import { api, ApiError } from "../api";
+import { useAuth } from "../auth";
+import { useT, formatDate, formatPrice } from "../i18n";
+import { Listing } from "../types";
+import { locationText } from "../lib/format";
 import PhotoGallery from "../components/PhotoGallery";
 import MapView from "../components/MapView";
-import { Listing, User, Message } from "../types";
-import { io, Socket } from "socket.io-client";
+import ChatBox from "../components/ChatBox";
+import { ListingSpecs, TypeBadge } from "../components/ListingCard";
+import { EmptyState, Field, Modal, PageLoader, Spinner } from "../components/ui";
 
-export default function ListingDetail({ user }: { user: User | null }) {
-  const { id } = useParams();
-  const navigate = useNavigate();
-  const [l, setL] = useState<Listing | null>(null);
+/** Local "yyyy-MM-ddTHH:mm" for <input type="datetime-local" min>. */
+const localNow = () => {
+  const d = new Date(Date.now() + 60 * 60 * 1000);
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 16);
+};
+
+function ViewingForm({ listingId }: { listingId: number }) {
+  const t = useT();
   const [date, setDate] = useState("");
-  const [msg, setMsg] = useState("");
-  const [chatOpen, setChatOpen] = useState(false);
-  const [chatMsg, setChatMsg] = useState("");
-  const [messages, setMessages] = useState<Message[]>([]);
-  const socketRef = useRef<Socket | null>(null);
+  const [note, setNote] = useState("");
+  const [sending, setSending] = useState(false);
 
-  useEffect(() => {
-    api<Listing>(`/listings/${id}`).then(setL).catch(() => alert("Listing not found"));
-  }, [id]);
-
-  useEffect(() => {
-    if (user && l && chatOpen) {
-      api<Message[]>(`/messages/${l.id}/${l.ownerId}`).then(setMessages);
-      if (!socketRef.current) {
-        socketRef.current = io("http://localhost:4000");
-        socketRef.current.emit("join", user.id.toString());
-        socketRef.current.on("new_message", (m: Message) => {
-          if (m.listingId === l.id && (m.senderId === l.ownerId || m.receiverId === l.ownerId)) {
-            setMessages((prev) => [...prev, m]);
-          }
-        });
-      }
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!date) return;
+    setSending(true);
+    try {
+      await api("/appointments", { method: "POST", body: { listingId, date: new Date(date).toISOString(), message: note.trim() || undefined } });
+      toast.success(t("viewing.sent"));
+      setDate("");
+      setNote("");
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setSending(false);
     }
-    return () => {
-      if (socketRef.current) {
-        socketRef.current.disconnect();
-        socketRef.current = null;
-      }
-    };
-  }, [user, l, chatOpen]);
-
-  if (!l) return <div>Loading...</div>;
-
-  const requestViewing = async () => {
-    try {
-      const isoDate = new Date(date).toISOString();
-      await api("/appointments", { method: "POST", body: { listingId: l.id, date: isoDate, message: msg } });
-      alert("Appointment request sent!");
-      setDate(""); setMsg("");
-    } catch (e) { alert((e as Error).message); }
-  };
-
-  const sendMessage = async () => {
-    if (!chatMsg.trim()) return;
-    try {
-      const m = await api<Message>("/messages", { method: "POST", body: { receiverId: l.ownerId, content: chatMsg, listingId: l.id } });
-      setMessages([...messages, m]);
-      setChatMsg("");
-    } catch (e) { alert((e as Error).message); }
   };
 
   return (
-    <div style={{ padding: 20 }}>
-      <button onClick={() => navigate(-1)} style={{ marginBottom: 16 }}>← Back</button>
-      <div style={{ display: "flex", gap: 20 }}>
-        {/* Left Col - Details */}
-        <div style={{ flex: 2 }}>
-          <h2>{l.title}</h2>
-          <h3 style={{ color: "#b00" }}>{l.price.toLocaleString()} ₺</h3>
-          <p style={{ color: "#555" }}>{l.neighborhood && l.neighborhood + ", "}{l.district && l.district + ", "}{l.city}</p>
-          {l.address && <p style={{ color: "#777", fontSize: 14, marginTop: -10 }}>{l.address}</p>}
-          
-          {/* Photos */}
-          <PhotoGallery photos={l.photos || []} />
+    <form onSubmit={submit} className="space-y-3">
+      <Field label={t("viewing.date")}>
+        <input type="datetime-local" className="input" min={localNow()} value={date} onChange={(e) => setDate(e.target.value)} required />
+      </Field>
+      <Field label={t("viewing.note")}>
+        <textarea className="input min-h-[72px] resize-none" maxLength={500} placeholder={t("viewing.notePlaceholder")} value={note} onChange={(e) => setNote(e.target.value)} />
+      </Field>
+      <button className="btn-primary w-full" disabled={!date || sending}>
+        {sending ? <Spinner className="h-4 w-4" /> : <CalendarCheck size={18} />}
+        {t("viewing.request")}
+      </button>
+    </form>
+  );
+}
 
-          <div style={{ background: "#f9f9f9", padding: 16, borderRadius: 8, marginBottom: 16 }}>
-            <h4>Description</h4>
-            <p style={{ whiteSpace: "pre-wrap" }}>{l.description}</p>
-            <ul style={{ listStyleType: "none", padding: 0, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-              <li><b>Type:</b> {l.type}</li>
-              <li><b>Area:</b> {l.area} m²</li>
-              <li><b>Rooms:</b> {l.rooms}</li>
-            </ul>
-          </div>
+export default function ListingDetail() {
+  const t = useT();
+  const { id } = useParams();
+  const location = useLocation();
+  const { user } = useAuth();
+  const [listing, setListing] = useState<Listing | null>(null);
+  const [status, setStatus] = useState<"loading" | "ok" | "notFound" | "error">("loading");
+  const [chatOpen, setChatOpen] = useState(false);
 
-          <div style={{ height: 300, marginBottom: 20 }}>
-             <MapView markers={[l]} center={{ lat: l.lat, lng: l.lng }} zoom={15} height={300} />
-          </div>
+  useEffect(() => {
+    setStatus("loading");
+    if (!/^\d+$/.test(id ?? "")) return setStatus("notFound");
+    api<Listing>(`/listings/${id}`)
+      .then((l) => {
+        setListing(l);
+        setStatus("ok");
+      })
+      .catch((e) => setStatus(e instanceof ApiError && e.status === 404 ? "notFound" : "error"));
+  }, [id]);
+
+  if (status === "loading") return <PageLoader />;
+  if (status !== "ok" || !listing)
+    return (
+      <div className="page py-16">
+        <EmptyState
+          icon={<SearchX size={22} />}
+          title={status === "notFound" ? t("detail.notFound") : t("common.loadError")}
+          text={status === "notFound" ? t("detail.notFoundText") : undefined}
+          action={
+            <Link to="/search" className="btn-primary">
+              {t("detail.backToListings")}
+            </Link>
+          }
+        />
+      </div>
+    );
+
+  const l = listing;
+  const isOwner = user?.id === l.ownerId;
+
+  return (
+    <div className="page py-6">
+      <Link to="/search" className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-brand-700 dark:hover:text-brand-300">
+        <ArrowLeft size={16} /> {t("detail.backToListings")}
+      </Link>
+
+      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <TypeBadge type={l.type} className="mb-2 bg-brand-50 dark:bg-brand-900/40 shadow-none ring-1 ring-brand-100 dark:ring-brand-800" />
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-3xl">{l.title}</h1>
+          <p className="mt-1.5 flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
+            <MapPin size={16} /> {locationText(l)}
+          </p>
+        </div>
+        <p className="text-sm text-slate-500 dark:text-slate-400">{t("detail.published", { date: formatDate(l.createdAt, t.lang) })}</p>
+      </div>
+
+      <div className="mb-8">
+        <PhotoGallery photos={l.photos} title={l.title} />
+      </div>
+
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_380px]">
+        <div className="space-y-6">
+          <section className="card p-5 sm:p-6">
+            <h2 className="mb-4 text-lg font-semibold text-slate-900 dark:text-white">{t("detail.overview")}</h2>
+            <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+              {[
+                [t("detail.price"), `${formatPrice(l.price, t.lang)} ${t("listing.perMonth")}`],
+                [t("detail.area"), `${l.area} m²`],
+                [t("detail.rooms"), String(l.rooms)],
+                [t("detail.type"), t(`type.${l.type}`)],
+              ].map(([k, v]) => (
+                <div key={k} className="rounded-xl bg-slate-50 dark:bg-slate-800/50 p-3">
+                  <dt className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">{k}</dt>
+                  <dd className="mt-1 font-semibold text-slate-900 dark:text-white">{v}</dd>
+                </div>
+              ))}
+            </dl>
+            {l.description && (
+              <>
+                <h3 className="mb-2 mt-6 font-semibold text-slate-900 dark:text-white">{t("detail.description")}</h3>
+                <p className="whitespace-pre-wrap leading-relaxed text-slate-600 dark:text-slate-300">{l.description}</p>
+              </>
+            )}
+          </section>
+
+          <section className="card p-5 sm:p-6">
+            <div className="mb-1 flex items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">{t("detail.location")}</h2>
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${l.lat},${l.lng}`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 text-sm font-semibold text-brand-700 dark:text-brand-300 hover:underline"
+              >
+                {t("detail.openInMaps")} <ExternalLink size={14} />
+              </a>
+            </div>
+            <p className="mb-4 text-sm text-slate-500 dark:text-slate-400">{[l.address, locationText(l)].filter(Boolean).join(" · ")}</p>
+            <MapView className="h-72" markers={[{ id: l.id, lat: l.lat, lng: l.lng }]} center={{ lat: l.lat, lng: l.lng }} zoom={15} />
+          </section>
         </div>
 
-        {/* Right Col - Actions */}
-        <div style={{ flex: 1, minWidth: 300 }}>
-          <div style={{ border: "1px solid #ddd", padding: 16, borderRadius: 8, position: "sticky", top: 20 }}>
-            <h3>Seller: {l.owner?.name}</h3>
-            {l.owner?.phone && <p style={{ fontSize: 18, fontWeight: "bold" }}>📞 {l.owner.phone}</p>}
-            
-            {user && user.id !== l.ownerId ? (
+        <aside className="lg:sticky lg:top-24 lg:self-start">
+          <div className="card space-y-5 p-5">
+            <div>
+              <span className="text-3xl font-bold text-slate-900 dark:text-white">{formatPrice(l.price, t.lang)}</span>
+              <span className="ml-1 text-slate-500 dark:text-slate-400">{t("listing.perMonth")}</span>
+              <ListingSpecs l={l} className="mt-2" />
+            </div>
+
+            <div className="flex items-center gap-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 p-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand-100 dark:bg-brand-900/60 font-bold text-brand-800 dark:text-brand-200">
+                {l.owner?.name.charAt(0).toLocaleUpperCase("tr")}
+              </span>
+              <div className="min-w-0">
+                <p className="text-xs text-slate-500 dark:text-slate-400">{t("detail.owner")}</p>
+                <p className="truncate font-semibold text-slate-900 dark:text-white">{l.owner?.name}</p>
+              </div>
+              {l.owner?.phone && user && !isOwner && (
+                <a href={`tel:${l.owner.phone}`} className="btn-secondary btn-sm ml-auto">
+                  <Phone size={14} /> {l.owner.phone}
+                </a>
+              )}
+            </div>
+
+            {isOwner ? (
+              <div className="space-y-3">
+                <p className="rounded-xl bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">{t("detail.yourListing")}</p>
+                <Link to={`/listings/${l.id}/edit`} className="btn-secondary w-full">
+                  <Pencil size={16} /> {t("detail.edit")}
+                </Link>
+              </div>
+            ) : user ? (
               <>
-                <hr style={{ margin: "16px 0" }} />
-                <h4>Request Appointment</h4>
-                <input type="datetime-local" value={date} onChange={(e) => setDate(e.target.value)} style={{ width: "100%", marginBottom: 8 }} />
-                <input placeholder="Optional message" value={msg} onChange={(e) => setMsg(e.target.value)} style={{ width: "100%", marginBottom: 8 }} />
-                <button onClick={requestViewing} disabled={!date} style={{ width: "100%" }}>Request viewing</button>
-
-                <hr style={{ margin: "16px 0" }} />
-                <button onClick={() => setChatOpen(!chatOpen)} style={{ width: "100%", background: "#28a745", color: "white", border: "none", padding: 10, borderRadius: 4 }}>
-                  💬 Message Seller
+                <div>
+                  <h3 className="mb-3 font-semibold text-slate-900 dark:text-white">{t("viewing.title")}</h3>
+                  <ViewingForm listingId={l.id} />
+                </div>
+                <button onClick={() => setChatOpen(true)} className="btn-secondary w-full">
+                  <MessageCircle size={18} /> {t("detail.message")}
                 </button>
-
-                {chatOpen && (
-                  <div style={{ marginTop: 16, border: "1px solid #ccc", borderRadius: 8, overflow: "hidden", display: "flex", flexDirection: "column", height: 300 }}>
-                    <div style={{ flex: 1, overflowY: "auto", padding: 8, background: "#f5f5f5" }}>
-                      {messages.map(m => (
-                        <div key={m.id} style={{ textAlign: m.senderId === user.id ? "right" : "left", marginBottom: 4 }}>
-                          <span style={{ display: "inline-block", padding: "4px 8px", borderRadius: 12, background: m.senderId === user.id ? "#dcf8c6" : "white", border: "1px solid #ddd" }}>
-                            {m.content}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                    <div style={{ display: "flex", borderTop: "1px solid #ccc" }}>
-                      <input value={chatMsg} onChange={e => setChatMsg(e.target.value)} onKeyPress={e => e.key === "Enter" && sendMessage()} placeholder="Type a message..." style={{ flex: 1, border: "none", padding: 8 }} />
-                      <button onClick={sendMessage} style={{ border: "none", background: "#0066cc", color: "white", padding: "0 16px" }}>Send</button>
-                    </div>
-                  </div>
-                )}
               </>
-            ) : user?.id === l.ownerId ? (
-              <p style={{ color: "green" }}>This is your listing.</p>
             ) : (
-              <p><a href="/auth">Log in</a> to contact the seller.</p>
+              <div className="space-y-3 text-center">
+                <p className="text-sm text-slate-600 dark:text-slate-300">{t("detail.loginToContact")}</p>
+                <Link to="/login" state={{ from: location.pathname }} className="btn-primary w-full">
+                  {t("nav.login")}
+                </Link>
+              </div>
             )}
           </div>
-        </div>
+        </aside>
       </div>
+
+      {user && !isOwner && (
+        <Modal
+          open={chatOpen}
+          onClose={() => setChatOpen(false)}
+          title={
+            <span>
+              {l.owner?.name} <span className="font-normal text-slate-500 dark:text-slate-400">· {l.title}</span>
+            </span>
+          }
+        >
+          <ChatBox listingId={l.id} otherUserId={l.ownerId} className="h-[60vh]" />
+        </Modal>
+      )}
     </div>
   );
 }
