@@ -48,39 +48,48 @@ type Errors = Partial<Record<keyof FormState | "photos", string>>;
 function Stepper({ step, labels }: { step: number; labels: string[] }) {
   return (
     <ol className="mb-8 flex items-center">
-      {labels.map((label, i) => (
-        <li key={label} className={`flex items-center ${i < labels.length - 1 ? "flex-1" : ""}`}>
-          <div className="flex items-center gap-2">
-            <span
-              className={`grid h-8 w-8 shrink-0 place-items-center rounded-full text-sm font-bold transition ${
-                i < step ? "bg-brand-700 text-white" : i === step ? "bg-brand-700 text-white ring-4 ring-brand-100 dark:ring-brand-800" : "bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400"
-              }`}
-            >
-              {i < step ? <Check size={16} /> : i + 1}
-            </span>
-            <span className={`hidden text-sm font-medium md:block ${i <= step ? "text-slate-900 dark:text-white" : "text-slate-400"}`}>{label}</span>
-          </div>
-          {i < labels.length - 1 && <div className={`mx-3 h-0.5 flex-1 rounded ${i < step ? "bg-brand-700" : "bg-slate-200 dark:bg-slate-800"}`} />}
-        </li>
-      ))}
+      {labels.map((l, i) => {
+        const done = i < step;
+        const current = i === step;
+        return (
+          <li key={l} className="flex flex-1 items-center last:flex-none">
+            <div className="flex items-center gap-2">
+              <span
+                className={`grid h-7 w-7 place-items-center rounded-full text-xs font-semibold ${
+                  done
+                    ? "bg-brand-700 text-white"
+                    : current
+                    ? "border-2 border-brand-700 text-brand-700 dark:border-brand-400 dark:text-brand-400"
+                    : "border border-slate-300 dark:border-slate-700 text-slate-400"
+                }`}
+              >
+                {done ? <Check size={14} /> : i + 1}
+              </span>
+              <span className={`text-xs font-medium sm:text-sm ${current ? "font-semibold text-slate-900 dark:text-white" : "text-slate-500 dark:text-slate-400"}`}>{l}</span>
+            </div>
+            {i < labels.length - 1 && <div className={`mx-3 h-0.5 flex-1 ${done ? "bg-brand-700" : "bg-slate-200 dark:bg-slate-800"}`} />}
+          </li>
+        );
+      })}
     </ol>
   );
 }
 
 export default function ListingForm() {
   const t = useT();
-  const { id } = useParams();
-  const editing = Boolean(id);
-  const navigate = useNavigate();
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
+  const editing = Boolean(id);
+
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<FormState>(blank);
+  const [errors, setErrors] = useState<Errors>({});
   const [existingPhotos, setExistingPhotos] = useState<string[]>([]);
   const [files, setFiles] = useState<File[]>([]);
-  const [errors, setErrors] = useState<Errors>({});
-  const [loading, setLoading] = useState(editing);
+  const [previews, setPreviews] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
-  const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | undefined>();
+  const [loading, setLoading] = useState(editing);
   const [dragging, setDragging] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -88,9 +97,10 @@ export default function ListingForm() {
     if (!editing) return;
     api<Listing>(`/listings/${id}`)
       .then((l) => {
-        if (l.ownerId !== user?.id) {
+        if (user && l.ownerId !== user.id) {
           toast.error(t("form.notYours"));
-          return navigate(`/listings/${id}`, { replace: true });
+          navigate("/dashboard");
+          return;
         }
         setForm({
           type: l.type,
@@ -107,47 +117,45 @@ export default function ListingForm() {
           lng: l.lng,
         });
         setExistingPhotos(l.photos);
-        setMapCenter({ lat: l.lat, lng: l.lng });
-        setLoading(false);
       })
-      .catch(() => navigate("/dashboard", { replace: true }));
-  }, [id]);
+      .catch(() => {
+        toast.error(t("detail.notFound"));
+        navigate("/dashboard");
+      })
+      .finally(() => setLoading(false));
+  }, [id, editing, user]);
 
-  const previews = useMemo(() => files.map((f) => URL.createObjectURL(f)), [files]);
-  useEffect(() => () => previews.forEach(URL.revokeObjectURL), [previews]);
+  useEffect(() => {
+    const urls = files.map((f) => URL.createObjectURL(f));
+    setPreviews(urls);
+    return () => urls.forEach((u) => URL.revokeObjectURL(u));
+  }, [files]);
 
-  const set = <K extends keyof FormState>(k: K, v: FormState[K]) => {
+  const mapCenter = useMemo<{ lat: number; lng: number }>(() => {
+    if (form.lat !== null && form.lng !== null) return { lat: form.lat, lng: form.lng };
+    return { lat: 37.0003, lng: 35.3213 }; // Default Adana
+  }, [form.lat, form.lng]);
+
+  const set = (k: keyof FormState, v: unknown) => {
     setForm((f) => ({ ...f, [k]: v }));
     setErrors((e) => ({ ...e, [k]: undefined }));
   };
 
-  const geocode = (query: string) => {
-    if (!window.google?.maps?.Geocoder) return;
-    new google.maps.Geocoder().geocode({ address: `${query}, Turkey` }, (results, status) => {
-      if (status !== "OK" || !results?.[0]) return;
-      const p = { lat: results[0].geometry.location.lat(), lng: results[0].geometry.location.lng() };
-      setMapCenter(p);
-      setForm((f) => ({ ...f, ...p }));
-    });
-  };
-
-  const onLocation = (v: LocationValue, changed: keyof LocationValue) => {
-    setForm((f) => ({ ...f, ...v }));
-    setErrors((e) => ({ ...e, city: undefined, lat: undefined }));
-    const query = changed === "neighborhood" ? [v.neighborhood, v.district, v.city] : changed === "district" ? [v.district, v.city] : [v.city];
-    if (query[0]) geocode(query.join(", "));
+  const onLocation = (v: LocationValue) => {
+    setForm((f) => ({ ...f, city: v.city, district: v.district, neighborhood: v.neighborhood }));
+    setErrors((e) => ({ ...e, city: undefined }));
   };
 
   const addFiles = (list: FileList | null) => {
-    // Copy the FileList right away: it is emptied when the input is cleared.
-    const picked = Array.from(list ?? []);
-    const valid = picked.filter((f) => f.type.startsWith("image/") && f.size <= MAX_PHOTO_MB * 1024 * 1024);
-    if (valid.length < picked.length) toast.error(t("form.photoRejected", { mb: MAX_PHOTO_MB }));
+    if (!list) return;
+    const incoming = Array.from(list);
+    const valid = incoming.filter((f) => f.type.startsWith("image/") && f.size <= MAX_PHOTO_MB * 1024 * 1024);
+    if (valid.length < incoming.length) toast.error(t("form.photoRejected", { mb: MAX_PHOTO_MB }));
     setFiles((prev) => [...prev, ...valid]);
     setErrors((e) => ({ ...e, photos: undefined }));
   };
 
-  const onDrop = (e: DragEvent) => {
+  const onDrop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setDragging(false);
     addFiles(e.dataTransfer.files);
@@ -162,7 +170,8 @@ export default function ListingForm() {
       if (form.title.trim().length < 5) e.title = t("form.err.title");
       if (!positive(form.price)) e.price = t("form.err.price");
       if (!positive(form.area)) e.area = t("form.err.area");
-      if (form.rooms === "" || Number(form.rooms) < 0) e.rooms = t("form.err.rooms");
+      const parsedR = form.rooms.includes("+") ? Number(form.rooms.split("+")[0].trim()) : Number(form.rooms);
+      if (form.rooms === "" || isNaN(parsedR) || parsedR < 0) e.rooms = t("form.err.rooms");
     }
     if (s === 1) {
       if (!form.city) e.city = t("form.err.city");
@@ -180,8 +189,12 @@ export default function ListingForm() {
 
   const submit = async () => {
     if (!validate(0) || !validate(1)) return;
+    const parsedR = form.rooms.includes("+") ? form.rooms.split("+")[0].trim() : form.rooms;
     const body = new FormData();
-    Object.entries(form).forEach(([k, v]) => body.append(k, v === null ? "" : String(v)));
+    Object.entries(form).forEach(([k, v]) => {
+      if (k === "rooms") body.append("rooms", parsedR);
+      else body.append(k, v === null ? "" : String(v));
+    });
     files.forEach((f) => body.append("photos", f));
     setSaving(true);
     try {
@@ -224,13 +237,12 @@ export default function ListingForm() {
               />
             </Field>
             <Field label={t("form.title")} error={errors.title} hint={t("form.titleHint")}>
-              <input className={`input ${errors.title ? "input-error" : ""}`} maxLength={100} value={form.title} onChange={(e) => set("title", e.target.value)} />
+              <input className={`input ${errors.title ? "input-error" : ""}`} value={form.title} onChange={(e) => set("title", e.target.value)} />
             </Field>
-            <Field label={t("form.description")}>
+            <Field label={t("form.description")} hint={t("form.descriptionPlaceholder")}>
               <textarea
-                className="input min-h-[140px]"
-                maxLength={3000}
-                placeholder={t("form.descriptionPlaceholder")}
+                rows={4}
+                className="input resize-y"
                 value={form.description}
                 onChange={(e) => set("description", e.target.value)}
               />
@@ -248,8 +260,8 @@ export default function ListingForm() {
                   <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">m²</span>
                 </div>
               </Field>
-              <Field label={t("form.rooms")} error={errors.rooms}>
-                <input type="number" min={0} className={`input ${errors.rooms ? "input-error" : ""}`} value={form.rooms} onChange={(e) => set("rooms", e.target.value)} />
+              <Field label={t("form.rooms")} error={errors.rooms} hint={t("filter.roomInputHint")}>
+                <input type="text" placeholder="Örn. 2+1 veya 2" className={`input ${errors.rooms ? "input-error" : ""}`} value={form.rooms} onChange={(e) => set("rooms", e.target.value)} />
               </Field>
             </div>
           </div>
@@ -374,7 +386,10 @@ export default function ListingForm() {
                 <p className="flex items-center gap-1 text-sm text-slate-500 dark:text-slate-400">
                   <MapPin size={14} /> {[form.neighborhood, form.district, form.city].filter(Boolean).join(", ")}
                 </p>
-                <ListingSpecs l={{ area: Number(form.area), rooms: Number(form.rooms) }} />
+                {(() => {
+                  const parsedR = form.rooms.includes("+") ? Number(form.rooms.split("+")[0].trim()) : Number(form.rooms);
+                  return <ListingSpecs l={{ area: Number(form.area), rooms: isNaN(parsedR) ? 0 : parsedR }} />;
+                })()}
                 {form.description && <p className="line-clamp-4 whitespace-pre-wrap pt-2 text-sm text-slate-600 dark:text-slate-300">{form.description}</p>}
                 <p className="pt-1 text-xs text-slate-400">{t("form.photoCount", { n: allPhotos.length })}</p>
               </div>

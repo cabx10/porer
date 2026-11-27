@@ -1,6 +1,6 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowRight, Building2, CalendarCheck, Home as HomeIcon, Map as MapIcon, MessageCircle, Search, Store } from "lucide-react";
+import { ArrowRight, Building2, CalendarCheck, Check, ChevronDown, Home as HomeIcon, Map as MapIcon, MessageCircle, Search, Store } from "lucide-react";
 import { api } from "../api";
 import { Listing, ListingPage, ListingType } from "../types";
 import { useT } from "../i18n";
@@ -9,29 +9,116 @@ import ListingCard, { ListingCardSkeleton } from "../components/ListingCard";
 import MapView, { MapMarker } from "../components/MapView";
 
 const CITY = "Adana";
-const ROOM_OPTIONS = ["1", "2", "3", "4", "5"];
+const ROOM_PRESETS = [
+  { id: "1", label: "1+1" },
+  { id: "2", label: "2+1" },
+  { id: "3", label: "3+1" },
+  { id: "4", label: "4+1" },
+  { id: "5+", label: "5+" },
+];
 
-/** Konut / İşyeri tabs over one search bar; the third field depends on the tab. */
+/** Parses room numbers from formats like "2+1", "3", "4+1" (takes number before '+') */
+function parseRoomInput(val: string): string[] {
+  if (!val) return [];
+  const parts = val.split(/[,;\s]+/).map((s) => s.trim()).filter(Boolean);
+  const result: string[] = [];
+  for (const part of parts) {
+    if (part === "5+" || part === "5_plus" || part === "5plus") {
+      if (!result.includes("5+")) result.push("5+");
+    } else if (part.includes("+")) {
+      const beforePlus = part.split("+")[0].trim();
+      const n = parseInt(beforePlus, 10);
+      if (!isNaN(n) && n >= 0) {
+        const strVal = String(n);
+        if (!result.includes(strVal)) result.push(strVal);
+      }
+    } else {
+      const n = parseInt(part, 10);
+      if (!isNaN(n) && n >= 0) {
+        const strVal = String(n);
+        if (!result.includes(strVal)) result.push(strVal);
+      }
+    }
+  }
+  return result;
+}
+
+/** Konut / İşyeri tabs over one search bar; supports multi-district and multi-room options. */
 function HeroSearch() {
   const t = useT();
   const navigate = useNavigate();
   const [type, setType] = useState<ListingType>("HOME");
-  const [district, setDistrict] = useState("");
+  const [selectedDistricts, setSelectedDistricts] = useState<string[]>([]);
   const [maxPrice, setMaxPrice] = useState("");
-  const [rooms, setRooms] = useState("");
+  const [selectedRooms, setSelectedRooms] = useState<string[]>([]);
+  const [roomInput, setRoomInput] = useState("");
   const [minArea, setMinArea] = useState("");
+
+  const [districtOpen, setDistrictOpen] = useState(false);
+  const [roomsOpen, setRoomsOpen] = useState(false);
+  const districtRef = useRef<HTMLDivElement>(null);
+  const roomsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (districtRef.current && !districtRef.current.contains(e.target as Node)) {
+        setDistrictOpen(false);
+      }
+      if (roomsRef.current && !roomsRef.current.contains(e.target as Node)) {
+        setRoomsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const toggleDistrict = (d: string) => {
+    setSelectedDistricts((prev) =>
+      prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]
+    );
+  };
+
+  const toggleRoomPreset = (id: string) => {
+    setSelectedRooms((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
+  const clearRooms = () => {
+    setSelectedRooms([]);
+    setRoomInput("");
+  };
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
     const qs = new URLSearchParams({ type, city: CITY });
-    if (district) qs.set("district", district);
+    if (selectedDistricts.length > 0) qs.set("district", selectedDistricts.join(","));
     if (maxPrice) qs.set("maxPrice", maxPrice);
-    if (type === "HOME" && rooms) qs.set("rooms", rooms);
+    if (type === "HOME") {
+      const parsedFromInput = parseRoomInput(roomInput);
+      const allRooms = Array.from(new Set([...selectedRooms, ...parsedFromInput]));
+      if (allRooms.length > 0) qs.set("rooms", allRooms.join(","));
+    }
     if (type === "OFFICE" && minArea) qs.set("minArea", minArea);
     navigate(`/search?${qs}`);
   };
 
-  const field = "flex flex-1 flex-col rounded-xl px-4 py-2.5 text-left transition hover:bg-slate-50 focus-within:bg-slate-50 dark:hover:bg-slate-800 dark:focus-within:bg-slate-800";
+  const roomSummary = () => {
+    const parsedFromInput = parseRoomInput(roomInput);
+    const allRooms = Array.from(new Set([...selectedRooms, ...parsedFromInput]));
+    if (allRooms.length > 0) {
+      const labels = allRooms.map((r) => {
+        const preset = ROOM_PRESETS.find((p) => p.id === r);
+        return preset ? preset.label : `${r} oda`;
+      });
+      return labels.join(", ");
+    }
+    return t("hero.any");
+  };
+
+  const allDistricts = Object.keys(locationData[CITY] ?? {});
+
+  const field = "flex flex-1 flex-col rounded-xl px-4 py-2.5 text-left transition hover:bg-slate-50 focus-within:bg-slate-50 dark:hover:bg-slate-800 dark:focus-within:bg-slate-800 w-full";
   const label = "text-xs font-medium text-slate-500 dark:text-slate-400";
   const control = "w-full bg-transparent text-[15px] font-medium text-slate-900 outline-none placeholder:font-normal placeholder:text-slate-400 dark:text-white dark:placeholder:text-slate-500";
   const divider = <span className="hidden h-10 w-px bg-slate-200 dark:bg-slate-700 md:block" />;
@@ -57,36 +144,177 @@ function HeroSearch() {
           </button>
         ))}
       </div>
-      <form onSubmit={submit} className="flex flex-col gap-1 rounded-b-2xl rounded-tr-2xl bg-white p-2 shadow-2xl shadow-brand-950/30 dark:bg-slate-900 md:flex-row md:items-center">
-        <label className={field}>
-          <span className={label}>{t("hero.district")}</span>
-          <select className={control} value={district} onChange={(e) => setDistrict(e.target.value)}>
-            <option value="">{t("hero.allOf", { city: CITY })}</option>
-            {Object.keys(locationData[CITY]).map((d) => (
-              <option key={d} value={d}>
-                {d}
-              </option>
-            ))}
-          </select>
-        </label>
+      <form onSubmit={submit} className="relative z-30 flex flex-col gap-1 rounded-b-2xl rounded-tr-2xl bg-white p-2 shadow-2xl shadow-brand-950/30 dark:bg-slate-900 md:flex-row md:items-center">
+        {/* Multi-district field */}
+        <div ref={districtRef} className={`relative flex-1 ${districtOpen ? "z-50" : "z-10"}`}>
+          <button
+            type="button"
+            onClick={() => {
+              setDistrictOpen((prev) => !prev);
+              setRoomsOpen(false);
+            }}
+            className={field}
+          >
+            <span className={label}>{t("hero.district")}</span>
+            <span className="flex items-center justify-between gap-1 w-full text-left">
+              <span className={`truncate text-[15px] font-medium ${selectedDistricts.length > 0 ? "text-slate-900 dark:text-white" : "text-slate-500 dark:text-slate-400"}`}>
+                {selectedDistricts.length === 0
+                  ? t("hero.allOf", { city: CITY })
+                  : selectedDistricts.length === 1
+                  ? selectedDistricts[0]
+                  : t("filter.selectedDistricts", { n: selectedDistricts.length })}
+              </span>
+              <ChevronDown size={14} className={`shrink-0 text-slate-400 transition-transform ${districtOpen ? "rotate-180" : ""}`} />
+            </span>
+          </button>
+
+          {districtOpen && (
+            <div className="absolute top-full left-0 z-50 mt-2 w-72 sm:w-80 rounded-2xl border border-slate-200 bg-white p-3 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+                <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                  {t("filter.districtSelect")}
+                </span>
+                {selectedDistricts.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedDistricts([])}
+                    className="text-xs font-semibold text-brand-700 hover:underline dark:text-brand-400"
+                  >
+                    {t("filter.allDistricts")}
+                  </button>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-1.5 pt-2.5">
+                {allDistricts.map((d) => {
+                  const isSelected = selectedDistricts.includes(d);
+                  return (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => toggleDistrict(d)}
+                      className={`flex items-center justify-between rounded-lg px-2.5 py-2 text-xs font-medium transition ${
+                        isSelected
+                          ? "bg-brand-700 text-white shadow-sm"
+                          : "border border-slate-200 bg-white text-slate-700 hover:border-brand-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                      }`}
+                    >
+                      <span className="truncate">{d}</span>
+                      {isSelected && <Check size={13} className="shrink-0 ml-1" />}
+                    </button>
+                  );
+                })}
+              </div>
+              {selectedDistricts.length > 0 && (
+                <div className="mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                  <span className="truncate max-w-[180px]">{selectedDistricts.join(", ")}</span>
+                  <button
+                    type="button"
+                    onClick={() => setDistrictOpen(false)}
+                    className="btn-secondary btn-sm py-0.5 px-2 text-xs font-semibold"
+                  >
+                    {t("common.continue")}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         {divider}
+
+        {/* Max price */}
         <label className={field}>
           <span className={label}>{t("hero.maxRent")}</span>
           <input className={control} type="number" min={0} placeholder={t("hero.any")} value={maxPrice} onChange={(e) => setMaxPrice(e.target.value)} />
         </label>
+
         {divider}
+
+        {/* Room presets + room input (for HOME) or Min area (for OFFICE) */}
         {type === "HOME" ? (
-          <label className={field}>
-            <span className={label}>{t("filter.rooms")}</span>
-            <select className={control} value={rooms} onChange={(e) => setRooms(e.target.value)}>
-              <option value="">{t("hero.any")}</option>
-              {ROOM_OPTIONS.map((r) => (
-                <option key={r} value={r}>
-                  {t("listing.roomsCount", { n: r })}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div ref={roomsRef} className={`relative flex-1 ${roomsOpen ? "z-50" : "z-10"}`}>
+            <button
+              type="button"
+              onClick={() => {
+                setRoomsOpen((prev) => !prev);
+                setDistrictOpen(false);
+              }}
+              className={field}
+            >
+              <span className={label}>{t("filter.rooms")}</span>
+              <span className="flex items-center justify-between gap-1 w-full text-left">
+                <span className={`truncate text-[15px] font-medium ${(selectedRooms.length > 0 || roomInput.trim()) ? "text-slate-900 dark:text-white" : "text-slate-500 dark:text-slate-400"}`}>
+                  {roomSummary()}
+                </span>
+                <ChevronDown size={14} className={`shrink-0 text-slate-400 transition-transform ${roomsOpen ? "rotate-180" : ""}`} />
+              </span>
+            </button>
+
+            {roomsOpen && (
+              <div className="absolute top-full left-0 md:left-auto md:right-0 z-50 mt-2 w-72 sm:w-80 rounded-2xl border border-slate-200 bg-white p-3.5 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+                  <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                    {t("filter.roomPresets")}
+                  </span>
+                  {(selectedRooms.length > 0 || roomInput.trim()) && (
+                    <button
+                      type="button"
+                      onClick={clearRooms}
+                      className="text-xs font-semibold text-brand-700 hover:underline dark:text-brand-400"
+                    >
+                      {t("filter.reset")}
+                    </button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-3 gap-1.5 pt-2.5 sm:grid-cols-5">
+                  {ROOM_PRESETS.map((p) => {
+                    const isSelected = selectedRooms.includes(p.id);
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => toggleRoomPreset(p.id)}
+                        className={`h-9 rounded-xl border text-xs font-semibold transition ${
+                          isSelected
+                            ? "border-brand-700 bg-brand-700 text-white shadow-sm"
+                            : "border-slate-200 bg-white text-slate-700 hover:border-brand-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                        }`}
+                      >
+                        {p.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="mt-3.5 border-t border-slate-100 pt-3 dark:border-slate-800">
+                  <label className="mb-1.5 block text-xs font-medium text-slate-500 dark:text-slate-400">
+                    {t("filter.roomInput")}
+                  </label>
+                  <input
+                    type="text"
+                    className="input h-9 py-1 text-xs"
+                    placeholder={t("filter.roomInputPlaceholder")}
+                    value={roomInput}
+                    onChange={(e) => setRoomInput(e.target.value)}
+                  />
+                  <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
+                    {t("filter.roomInputHint")}
+                  </p>
+                </div>
+
+                <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setRoomsOpen(false)}
+                    className="btn-secondary btn-sm py-1 px-3 text-xs font-semibold"
+                  >
+                    {t("common.continue")}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         ) : (
           <label className={field}>
             <span className={label}>{t("hero.minArea")}</span>
@@ -174,15 +402,15 @@ export default function Home() {
 
   return (
     <>
-      <section className="relative overflow-hidden bg-brand-900">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(90,128,196,0.35),transparent_55%)]" />
+      <section className="relative z-20 bg-brand-900">
+        <div className="pointer-events-none absolute inset-0 overflow-hidden bg-[radial-gradient(ellipse_at_top_right,rgba(90,128,196,0.35),transparent_55%)]" />
         <div className="page relative grid items-center gap-10 py-12 sm:py-16 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
           <div>
             <h1 className="max-w-2xl text-3xl font-bold tracking-tight text-white sm:text-4xl xl:text-5xl">{t("hero.title", { city: CITY })}</h1>
             <p className="mt-3 text-base text-brand-200 sm:text-lg">
-              {counts.all !== undefined ? t("hero.stats", { n: counts.all, d: districts.length }) : " "}
+              {counts.all !== undefined ? t("hero.stats", { n: counts.all, d: districts.length }) : "\u00A0"}
             </p>
-            <div className="mt-8">
+            <div className="relative z-30 mt-8">
               <HeroSearch />
             </div>
           </div>
@@ -190,7 +418,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="page -mt-px py-12">
+      <section className="page relative z-10 -mt-px py-12">
         <div className="grid gap-4 sm:grid-cols-2">
           {categories.map(({ type, icon: Icon, title, text }) => (
             <Link
