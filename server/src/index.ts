@@ -6,6 +6,7 @@ import { authRouter } from "./auth";
 import { listingsRouter } from "./listings";
 import { appointmentsRouter } from "./appointments";
 import { messagesRouter } from "./messages";
+import { geoRouter } from "./geo";
 import path from "path";
 
 const app = express();
@@ -22,6 +23,7 @@ app.use("/api/auth", authRouter);
 app.use("/api/listings", listingsRouter);
 app.use("/api/appointments", appointmentsRouter);
 app.use("/api/messages", messagesRouter);
+app.use("/api/geo", geoRouter);
 
 // Socket.io integration for real-time messaging
 io.on("connection", (socket) => {

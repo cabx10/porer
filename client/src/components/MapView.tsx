@@ -1,8 +1,11 @@
-import { useEffect, useState } from "react";
-import { GoogleMap, Marker, OverlayView, useJsApiLoader } from "@react-google-maps/api";
+import { Fragment, useEffect, useMemo, useState } from "react";
+import { GoogleMap, Marker, OverlayView, Polygon, useJsApiLoader } from "@react-google-maps/api";
 import { MapPinOff } from "lucide-react";
 import { useT, formatPriceShort } from "../i18n";
 import { useTheme } from "../theme";
+import { adanaDistrictsGeo } from "../utils/adanaDistrictsGeo";
+import { adanaNeighborhoodsGeo, NeighborhoodGeoItem } from "../utils/adanaNeighborhoodsGeo";
+import { api } from "../api";
 
 export interface MapMarker {
   id: number;
@@ -10,6 +13,8 @@ export interface MapMarker {
   lng: number;
   price?: number;
 }
+
+export type NeighborhoodGeo = NeighborhoodGeoItem;
 
 interface Props {
   markers: MapMarker[];
@@ -27,6 +32,10 @@ interface Props {
   cooperative?: boolean;
   /** Zoom the map to show every marker whenever the marker list changes. */
   fitToMarkers?: boolean;
+  /** Districts to outline in red (array or comma-separated string). */
+  selectedDistricts?: string[] | string;
+  /** Neighborhoods to outline in green (array or comma-separated string). */
+  selectedNeighborhoods?: string[] | string;
 }
 
 const ADANA = { lat: 37.0, lng: 35.3213 };
@@ -73,6 +82,8 @@ export default function MapView({
   fitToMarkers,
   pickLocation,
   cooperative,
+  selectedDistricts,
+  selectedNeighborhoods,
 }: Props) {
   const t = useT();
   const { theme } = useTheme();
@@ -80,22 +91,154 @@ export default function MapView({
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [initialCenter] = useState(() => center ?? markers[0] ?? ADANA);
 
+  // Parse districts into list
+  const districtList = useMemo(() => {
+    if (!selectedDistricts) return [];
+    const arr = Array.isArray(selectedDistricts) ? selectedDistricts : selectedDistricts.split(",");
+    return arr.map((d) => d.trim()).filter(Boolean);
+  }, [selectedDistricts]);
+
+  // Extract polygon paths for each selected district
+  const districtPolygons = useMemo(() => {
+    const list: Array<{ district: string; paths: Array<{ lat: number; lng: number }> }> = [];
+    districtList.forEach((d) => {
+      const geo = adanaDistrictsGeo[d];
+      if (geo) {
+        geo.forEach((path) => {
+          list.push({ district: d, paths: path });
+        });
+      }
+    });
+    return list;
+  }, [districtList]);
+
+  // Parse neighborhoods into list
+  const neighborhoodList = useMemo(() => {
+    if (!selectedNeighborhoods) return [];
+    const arr = Array.isArray(selectedNeighborhoods) ? selectedNeighborhoods : selectedNeighborhoods.split(",");
+    return arr.map((n) => n.trim()).filter(Boolean);
+  }, [selectedNeighborhoods]);
+
+  // State for dynamically fetched neighborhood polygons from server
+  const [fetchedNeighborhoodGeos, setFetchedNeighborhoodGeos] = useState<NeighborhoodGeo[]>([]);
+
+  useEffect(() => {
+    if (neighborhoodList.length === 0) {
+      setFetchedNeighborhoodGeos([]);
+      return;
+    }
+
+    // Filter to neighborhoods not already available in pre-bundled client geo
+    const missing = neighborhoodList.filter((name) => !adanaNeighborhoodsGeo[name]);
+    if (missing.length === 0) {
+      setFetchedNeighborhoodGeos([]);
+      return;
+    }
+
+    const primaryDistrict = districtList.length === 1 ? districtList[0] : "";
+    const qs = new URLSearchParams({
+      names: missing.join(","),
+    });
+    if (primaryDistrict) qs.set("district", primaryDistrict);
+
+    let isMounted = true;
+    api<NeighborhoodGeo[]>(`/geo/neighborhoods?${qs}`)
+      .then((res) => {
+        if (isMounted) setFetchedNeighborhoodGeos(res);
+      })
+      .catch((err) => {
+        console.error("Failed to load neighborhood boundaries:", err);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [neighborhoodList.join(","), districtList.join(",")]);
+
+  // Merge pre-bundled and dynamically fetched neighborhood geos
+  const neighborhoodGeos = useMemo(() => {
+    const list: NeighborhoodGeo[] = [];
+    const seen = new Set<string>();
+
+    neighborhoodList.forEach((name) => {
+      const bundled = adanaNeighborhoodsGeo[name];
+      if (bundled) {
+        list.push(bundled);
+        seen.add(name.toLowerCase());
+      }
+    });
+
+    fetchedNeighborhoodGeos.forEach((geo) => {
+      if (!seen.has(geo.name.toLowerCase())) {
+        list.push(geo);
+        seen.add(geo.name.toLowerCase());
+      }
+    });
+
+    return list;
+  }, [neighborhoodList, fetchedNeighborhoodGeos]);
+
   useEffect(() => {
     if (map && center) map.panTo(center);
   }, [map, center?.lat, center?.lng]);
 
+  // Auto-fit camera to highlighted regions or markers
   const markerKey = markers.map((m) => m.id).join(",");
+  const districtKey = districtList.join(",");
+  const neighborhoodKey = neighborhoodList.join(",");
+
   useEffect(() => {
-    if (!map || !fitToMarkers || markers.length === 0) return;
-    if (markers.length === 1) {
-      map.panTo(markers[0]);
-      map.setZoom(13);
-      return;
-    }
+    if (!map) return;
     const bounds = new google.maps.LatLngBounds();
-    markers.forEach((m) => bounds.extend(m));
-    map.fitBounds(bounds, 60);
-  }, [map, fitToMarkers, markerKey]);
+    let hasPoints = false;
+
+    // Prioritize zooming to selected neighborhoods (green)
+    if (neighborhoodGeos.length > 0) {
+      neighborhoodGeos.forEach((ng) => {
+        ng.paths.forEach((ring) => {
+          ring.forEach((pt) => {
+            bounds.extend(pt);
+            hasPoints = true;
+          });
+        });
+        if (ng.center) {
+          bounds.extend(ng.center);
+          hasPoints = true;
+        }
+      });
+    } else if (districtPolygons.length > 0) {
+      // Prioritize zooming to selected districts (red)
+      districtPolygons.forEach((dp) => {
+        dp.paths.forEach((pt) => {
+          bounds.extend(pt);
+          hasPoints = true;
+        });
+      });
+    } else if (fitToMarkers && markers.length > 0) {
+      if (markers.length === 1) {
+        map.panTo(markers[0]);
+        map.setZoom(13);
+        return;
+      }
+      markers.forEach((m) => {
+        bounds.extend(m);
+        hasPoints = true;
+      });
+    }
+
+    if (hasPoints) {
+      map.fitBounds(bounds, 50);
+      const listener = google.maps.event.addListenerOnce(map, "idle", () => {
+        const currentZoom = map.getZoom();
+        if (currentZoom && currentZoom > 15) {
+          map.setZoom(15);
+        }
+      });
+      return () => {
+        google.maps.event.removeListener(listener);
+      };
+    }
+  }, [map, districtKey, neighborhoodKey, neighborhoodGeos, districtPolygons, markerKey, fitToMarkers]);
 
   if (loadError)
     return (
@@ -118,6 +261,55 @@ export default function MapView({
         onLoad={setMap}
         onClick={(e) => e.latLng && onMapClick?.(e.latLng.lat(), e.latLng.lng())}
       >
+        {/* Red Outlines for Selected Districts */}
+        {districtPolygons.map((dp, idx) => (
+          <Polygon
+            key={`district-poly-${dp.district}-${idx}`}
+            paths={dp.paths}
+            options={{
+              strokeColor: "#ef4444",
+              strokeOpacity: 0.85,
+              strokeWeight: 2.5,
+              fillColor: "#ef4444",
+              fillOpacity: 0.12,
+              clickable: false,
+            }}
+          />
+        ))}
+
+        {/* Green Outlines for Selected Neighborhoods */}
+        {neighborhoodGeos.map((ng, idx) => (
+          <Fragment key={`ng-group-${ng.name}-${idx}`}>
+            {ng.paths.map((path, pIdx) => (
+              <Polygon
+                key={`ng-poly-${ng.name}-${idx}-${pIdx}`}
+                paths={path}
+                options={{
+                  strokeColor: "#10b981",
+                  strokeOpacity: 0.95,
+                  strokeWeight: 3,
+                  fillColor: "#10b981",
+                  fillOpacity: 0.22,
+                  clickable: false,
+                }}
+              />
+            ))}
+            {ng.center && (
+              <OverlayView
+                position={ng.center}
+                mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
+                getPixelPositionOffset={(w, h) => ({ x: -w / 2, y: -h / 2 })}
+              >
+                <div className="pointer-events-none flex items-center gap-1.5 whitespace-nowrap rounded-full bg-emerald-600/90 px-2.5 py-1 text-xs font-bold text-white shadow-md ring-1 ring-emerald-700/60 backdrop-blur-sm">
+                  <span className="inline-block h-2 w-2 rounded-full bg-white animate-pulse" />
+                  {ng.name}
+                </div>
+              </OverlayView>
+            )}
+          </Fragment>
+        ))}
+
+        {/* Listing markers */}
         {markers.map((m) =>
           m.price !== undefined ? (
             <OverlayView
